@@ -37,9 +37,9 @@ function playability(cardId: string, actorSeat: Seat, state: GameState, seatOrde
 const PHASE_INFO: Record<Phase, { title: string; hint: string; action?: string }> = {
   squareUp:   { title: "Tee up",        hint: "Set up the basket you'll be throwing at this turn.", action: "Tee up" },
   draw:       { title: "Draw a card",   hint: "Draw a card into your hand.", action: "Draw a card" },
-  play:       { title: "Play a card",   hint: "Play a card from your hand — you must, if you can — or discard one." },
+  play:       { title: "Play a card",   hint: "Play a card from the hand below — you must, if you can — or discard one." },
   chop:       { title: "Throw!",        hint: "Roll the dice. Each 4, 5 or 6 lands a throw on your basket.", action: "🎯 Throw!" },
-  manageHelp: { title: "Helpers throw", hint: "Roll the dice for any helper cards you have in play.", action: "Roll helpers" },
+  manageHelp: { title: "Helpers throw", hint: "Roll the dice for any helper cards in play.", action: "Roll helpers" },
   end:        { title: "End turn",      hint: "Wrap up and pass play to the next disc golfer.", action: "End turn" },
   gameOver:   { title: "Game over",     hint: "" },
 };
@@ -50,7 +50,8 @@ function categoryLabel(id: string): string {
 
 export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
   const { state, dispatch, mySeat } = useGame();
-  const { players, seatOrder, turn, lastRoll, winner, pendingReaction } = state;
+  const { players, seatOrder, turn, lastRoll, winner } = state;
+  const pending = state.pendingReaction;
   const theme: ThemeContent = themeProp ?? getTheme(DEFAULT_THEME);
 
   const [error, setError] = useState<string | null>(null);
@@ -63,16 +64,26 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
     if (!result.ok) setError(result.error);
   };
 
-  const isMyTurn = mySeat !== null && turn.activeSeat === mySeat;
+  // Hotseat (pass-and-play): no fixed seat → the local device controls whoever
+  // the game is waiting on. Online: the device controls only its own seat.
+  const hotseat = mySeat === null;
   const activeName = players[turn.activeSeat]?.name ?? `Seat ${turn.activeSeat}`;
   const phase = PHASE_INFO[turn.phase];
 
-  const isMyReactionTurn =
-    mySeat !== null && pendingReaction !== null &&
-    pendingReaction.eligibleReactors.includes(mySeat) && !pendingReaction.passed.includes(mySeat);
+  const canTakeTurn = pending === null && winner === null && (hotseat || turn.activeSeat === mySeat);
 
-  const me = mySeat !== null ? players[mySeat] : undefined;
-  const canPlayNow = isMyTurn && turn.phase === "play" && pendingReaction === null && winner === null;
+  // Which seat does the local device react AS right now (if a reaction is pending)?
+  const reactionSeat: Seat | null =
+    pending === null
+      ? null
+      : hotseat
+        ? (pending.eligibleReactors.find((s) => !pending.passed.includes(s)) ?? null)
+        : (mySeat !== null && pending.eligibleReactors.includes(mySeat) && !pending.passed.includes(mySeat) ? mySeat : null);
+
+  // Whose hand the panel shows: online → always your own; hotseat → the current actor.
+  const handSeat: Seat | null = hotseat ? (pending !== null ? reactionSeat : turn.activeSeat) : mySeat;
+  const handPlayer = handSeat !== null ? players[handSeat] : undefined;
+  const canPlayNow = canTakeTurn && turn.phase === "play";
 
   return (
     <div className="game">
@@ -82,9 +93,14 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
         <div className="turnbar-status">
           {winner !== null ? (
             <span className="turnbar-title">Game over</span>
-          ) : pendingReaction !== null ? (
+          ) : pending !== null ? (
             <span className="turnbar-title">⚡ Reaction window</span>
-          ) : isMyTurn ? (
+          ) : hotseat ? (
+            <>
+              <span className="turnbar-title">{activeName}’s turn — {phase.title}</span>
+              <span className="turnbar-hint">{phase.hint}</span>
+            </>
+          ) : turn.activeSeat === mySeat ? (
             <>
               <span className="turnbar-title">Your turn — {phase.title}</span>
               <span className="turnbar-hint">{phase.hint}</span>
@@ -97,7 +113,7 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
           )}
         </div>
         <div className="turnbar-action">
-          {isMyTurn && winner === null && pendingReaction === null && phase.action && (
+          {canTakeTurn && phase.action && (
             <button className="btn btn-primary btn-lg"
               onClick={() => void act({ type: turn.phase === "end" ? "endTurn" : turn.phase } as Action)}>
               {phase.action}
@@ -109,48 +125,53 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
       {error && <div className="toast toast-error" role="alert">{error}<button onClick={() => setError(null)} aria-label="Dismiss">✕</button></div>}
 
       {/* ---- Reaction window --------------------------------------------- */}
-      {pendingReaction !== null && (
+      {pending !== null && (
         <section className="reaction" role="region" aria-label="Reaction window">
           <p className="reaction-headline">
-            <strong>{players[pendingReaction.actorSeat]?.name ?? `Seat ${pendingReaction.actorSeat}`}</strong>{" "}
-            played <strong>{theme.card(pendingReaction.card).name}</strong>
-            {pendingReaction.target !== undefined && <> on <strong>{players[pendingReaction.target]?.name}</strong></>}.
+            <strong>{players[pending.actorSeat]?.name ?? `Seat ${pending.actorSeat}`}</strong>{" "}
+            played <strong>{theme.card(pending.card).name}</strong>
+            {pending.target !== undefined && <> on <strong>{players[pending.target]?.name}</strong></>}.
           </p>
-          {isMyReactionTurn && mySeat !== null ? (
-            <div className="reaction-actions">
-              {players[mySeat]!.hand.filter((c) => stoppersFor(pendingReaction.card).includes(c)).map((cardId, idx) => (
-                <button key={`${cardId}-${idx}`} className="btn btn-primary"
-                  onClick={() => void act({ type: "react", seat: mySeat, card: cardId })}>
-                  Counter with {theme.card(cardId).name}
-                </button>
-              ))}
-              <button className="btn btn-ghost" onClick={() => void act({ type: "passReaction", seat: mySeat })}>Let it happen</button>
-            </div>
+          {reactionSeat !== null ? (
+            <>
+              <p className="reaction-sub">
+                {hotseat ? <><strong>{players[reactionSeat]?.name}</strong>, counter it or let it happen?</> : "Counter it or let it happen?"}
+              </p>
+              <div className="reaction-actions">
+                {players[reactionSeat]!.hand.filter((c) => stoppersFor(pending.card).includes(c)).map((cardId, idx) => (
+                  <button key={`${cardId}-${idx}`} className="btn btn-primary"
+                    onClick={() => void act({ type: "react", seat: reactionSeat, card: cardId })}>
+                    Counter with {theme.card(cardId).name}
+                  </button>
+                ))}
+                <button className="btn btn-ghost" onClick={() => void act({ type: "passReaction", seat: reactionSeat })}>Let it happen</button>
+              </div>
+            </>
           ) : (
             <p className="reaction-waiting">
               Waiting on{" "}
-              {pendingReaction.eligibleReactors.filter((s) => !pendingReaction.passed.includes(s))
+              {pending.eligibleReactors.filter((s) => !pending.passed.includes(s))
                 .map((s) => players[s]?.name ?? `Seat ${s}`).join(", ") || "resolution"}…
             </p>
           )}
         </section>
       )}
 
-      {/* ---- Your hand --------------------------------------------------- */}
-      {me && (
+      {/* ---- Hand -------------------------------------------------------- */}
+      {handPlayer && (
         <section className="hand-panel">
           <h2 className="section-title">
-            Your hand <span className="muted">({me.hand.length})</span>
+            {hotseat ? `${handPlayer.name}’s hand` : "Your hand"} <span className="muted">({handPlayer.hand.length})</span>
             {canPlayNow && <span className="badge badge-go">play or discard a card</span>}
           </h2>
-          {me.hand.length === 0 ? (
+          {handPlayer.hand.length === 0 ? (
             <p className="muted">No cards in hand.</p>
           ) : (
             <ul className="cards">
-              {me.hand.map((cardId, idx) => {
+              {handPlayer.hand.map((cardId, idx) => {
                 const d = theme.card(cardId);
                 const key = `${cardId}-${idx}`;
-                const info = canPlayNow ? playability(cardId, mySeat!, state, seatOrder) : null;
+                const info = canPlayNow ? playability(cardId, turn.activeSeat, state, seatOrder) : null;
                 const targeting = targetingCard === key;
                 return (
                   <li key={key} className={`card cat-${categoryLabel(cardId).split("/")[0]} ${info?.mode === "none" ? "card-dim" : ""}`}>
@@ -188,7 +209,7 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
             </ul>
           )}
           {lastRoll.length > 0 && (
-            <p className="lastroll">Last roll: {lastRoll.map((d, i) => <span key={i} className={`die ${d >= 4 ? "hit" : d === 3 ? "miss" : "low"}`}>{d}</span>)}</p>
+            <p className="lastroll">Last roll: {lastRoll.map((die, i) => <span key={i} className={`die ${die >= 4 ? "hit" : die === 3 ? "miss" : "low"}`}>{die}</span>)}</p>
           )}
         </section>
       )}
@@ -200,8 +221,8 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
           {seatOrder.map((seat) => {
             const p = players[seat];
             if (!p) return null;
-            const isMe = mySeat === seat;
             const isActive = turn.activeSeat === seat;
+            const isMe = !hotseat && mySeat === seat;
             const tree = p.standingTree;
             const td = tree ? theme.tree(tree.treeId) : null;
             const pct = td ? Math.min(100, Math.round((tree!.chops / td.chopTarget) * 100)) : 0;
