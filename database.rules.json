@@ -1,0 +1,37 @@
+{
+  "rules": {
+    "games": {
+      "$gameId": {
+        "meta": {
+          ".read": "auth != null",
+          ".write": "auth != null && ((!data.exists() && newData.child('host').val() === auth.uid) || (data.exists() && newData.child('host').val() === data.child('host').val()))"
+        },
+        "lobby": {
+          ".read": "auth != null",
+          "$slot": {
+            ".write": "auth != null && root.child('games/'+$gameId+'/meta/status').val() === 'lobby' && ((newData.exists() && newData.child('uid').val() === auth.uid && (!data.exists() || data.child('uid').val() === auth.uid)) || (!newData.exists() && data.exists()))",
+            ".validate": "!newData.exists() || (newData.hasChildren(['uid','name']) && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 24)"
+          }
+        },
+        "_claims": {
+          ".read": "auth != null",
+          "$claimSeat": {
+            ".write": "auth != null && !data.exists()"
+          }
+        },
+        "seats": {
+          ".read": "auth != null",
+          "$seat": {
+            ".write": "auth != null && ((!data.exists() && root.child('games/'+$gameId+'/meta/status').val() === 'lobby') || (newData.child('uid').val() === auth.uid && (data.child('uid').val() === auth.uid || newData.child('proof').val() === root.child('games/'+$gameId+'/_claims/'+$seat).val())))",
+            ".validate": "newData.hasChildren(['uid'])",
+            "proof": { ".read": false }
+          }
+        },
+        "state": {
+          ".read": "auth != null",
+          ".write": "auth != null && newData.exists() && ((!data.exists() && root.child('games/'+$gameId+'/meta/status').val() === 'lobby') || (data.exists() && newData.child('version').val() === data.child('version').val() + 1 && (root.child('games/'+$gameId+'/seats/'+data.child('turn/activeSeat').val()+'/uid').val() === auth.uid || (data.child('pendingReaction').exists() && (root.child('games/'+$gameId+'/seats/0/uid').val() === auth.uid || root.child('games/'+$gameId+'/seats/1/uid').val() === auth.uid || root.child('games/'+$gameId+'/seats/2/uid').val() === auth.uid || root.child('games/'+$gameId+'/seats/3/uid').val() === auth.uid || root.child('games/'+$gameId+'/seats/4/uid').val() === auth.uid || root.child('games/'+$gameId+'/seats/5/uid').val() === auth.uid || root.child('games/'+$gameId+'/seats/6/uid').val() === auth.uid || root.child('games/'+$gameId+'/seats/7/uid').val() === auth.uid)))))"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,8 @@
+.imgtmp/
+node_modules/
+dist/
+.env
+
+# Local-only reference material (not published)
+references/
+docs/
