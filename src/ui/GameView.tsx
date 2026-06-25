@@ -7,14 +7,12 @@ import { stoppersFor } from "../engine/reactions";
 import { getTheme, DEFAULT_THEME } from "../content";
 import type { ThemeContent } from "../content";
 import type { CardContext } from "../engine/cards/ctx";
-import type { GameState, PlayerState, Action, Seat } from "../engine/types";
+import type { GameState, PlayerState, Action, Seat, Phase } from "../engine/types";
 import type { Rng } from "../engine/rng";
 
 function playerScore(p: PlayerState): number {
   let total = p.speedClimbPoints;
-  for (const treeId of p.scoredTrees) {
-    total += treeStats(treeId).treeScore;
-  }
+  for (const treeId of p.scoredTrees) total += treeStats(treeId).treeScore;
   return total;
 }
 
@@ -24,46 +22,35 @@ const dummyRng: Rng = { nextFloat: () => 0, nextInt: () => 0, shuffle: (a: any[]
 
 type PlayabilityResult = { mode: "self" | "target" | "none"; legalTargets: Seat[] };
 
-/**
- * Determines how a card in hand can be played:
- * - "self"   → playable with no target; show a single "Play" button
- * - "target" → NOT playable without a target but playable with some opponent; show per-seat buttons
- * - "none"   → not playable at all (deferred or blocked)
- */
-function playability(
-  cardId: string,
-  actorSeat: Seat,
-  state: GameState,
-  seatOrder: Seat[],
-): PlayabilityResult {
+function playability(cardId: string, actorSeat: Seat, state: GameState, seatOrder: Seat[]): PlayabilityResult {
   const handler = getHandler(cardId);
-  const ctxBase: CardContext = { state, actorSeat, rng: dummyRng };
-
-  if (handler.isPlayable(ctxBase)) {
-    return { mode: "self", legalTargets: [] };
-  }
-
-  // Check if any opponent seat makes it playable
+  if (handler.isPlayable({ state, actorSeat, rng: dummyRng })) return { mode: "self", legalTargets: [] };
   const legalTargets: Seat[] = [];
   for (const seat of seatOrder) {
     if (seat === actorSeat) continue;
-    const ctx: CardContext = { state, actorSeat, target: seat, rng: dummyRng };
-    if (handler.isPlayable(ctx)) {
-      legalTargets.push(seat);
-    }
+    if (handler.isPlayable({ state, actorSeat, target: seat, rng: dummyRng } as CardContext)) legalTargets.push(seat);
   }
+  return legalTargets.length > 0 ? { mode: "target", legalTargets } : { mode: "none", legalTargets: [] };
+}
 
-  if (legalTargets.length > 0) {
-    return { mode: "target", legalTargets };
-  }
+/** Friendly, disc-golf-flavoured guidance for each phase. */
+const PHASE_INFO: Record<Phase, { title: string; hint: string; action?: string }> = {
+  squareUp:   { title: "Tee up",        hint: "Set up the basket you'll be throwing at this turn.", action: "Tee up" },
+  draw:       { title: "Draw a card",   hint: "Draw a card into your hand.", action: "Draw a card" },
+  play:       { title: "Play a card",   hint: "Play a card from your hand — you must, if you can — or discard one." },
+  chop:       { title: "Throw!",        hint: "Roll the dice. Each 4, 5 or 6 lands a throw on your basket.", action: "🎯 Throw!" },
+  manageHelp: { title: "Helpers throw", hint: "Roll the dice for any helper cards you have in play.", action: "Roll helpers" },
+  end:        { title: "End turn",      hint: "Wrap up and pass play to the next disc golfer.", action: "End turn" },
+  gameOver:   { title: "Game over",     hint: "" },
+};
 
-  return { mode: "none", legalTargets: [] };
+function categoryLabel(id: string): string {
+  try { return cardCategory(id).replace("-", "/"); } catch { return "card"; }
 }
 
 export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
   const { state, dispatch, mySeat } = useGame();
   const { players, seatOrder, turn, lastRoll, winner, pendingReaction } = state;
-
   const theme: ThemeContent = themeProp ?? getTheme(DEFAULT_THEME);
 
   const [error, setError] = useState<string | null>(null);
@@ -71,260 +58,187 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
 
   const act = async (action: Action) => {
     setError(null);
+    setTargetingCard(null);
     const result = await dispatch(action);
-    if (!result.ok) {
-      setError(result.error);
-    }
+    if (!result.ok) setError(result.error);
   };
 
   const isMyTurn = mySeat !== null && turn.activeSeat === mySeat;
+  const activeName = players[turn.activeSeat]?.name ?? `Seat ${turn.activeSeat}`;
+  const phase = PHASE_INFO[turn.phase];
 
-  // Reaction window state
   const isMyReactionTurn =
-    mySeat !== null &&
-    pendingReaction !== null &&
-    pendingReaction.eligibleReactors.includes(mySeat) &&
-    !pendingReaction.passed.includes(mySeat);
-  const isWaitingForReactions =
-    pendingReaction !== null && !isMyReactionTurn;
+    mySeat !== null && pendingReaction !== null &&
+    pendingReaction.eligibleReactors.includes(mySeat) && !pendingReaction.passed.includes(mySeat);
+
+  const me = mySeat !== null ? players[mySeat] : undefined;
+  const canPlayNow = isMyTurn && turn.phase === "play" && pendingReaction === null && winner === null;
 
   return (
-    <div className="game-view">
-      {winner !== null && (
-        <div className="win-banner" role="alert">
-          <h2>🎉 {players[winner]?.name ?? `Seat ${winner}`} wins!</h2>
-          <button onClick={() => { location.hash = "#/"; }}>Back to start</button>
+    <div className="game">
+      {/* ---- Top turn bar ------------------------------------------------ */}
+      <header className="turnbar">
+        <div className="turnbar-brand">🥏 Disc Throwers</div>
+        <div className="turnbar-status">
+          {winner !== null ? (
+            <span className="turnbar-title">Game over</span>
+          ) : pendingReaction !== null ? (
+            <span className="turnbar-title">⚡ Reaction window</span>
+          ) : isMyTurn ? (
+            <>
+              <span className="turnbar-title">Your turn — {phase.title}</span>
+              <span className="turnbar-hint">{phase.hint}</span>
+            </>
+          ) : (
+            <>
+              <span className="turnbar-title">Waiting for {activeName}</span>
+              <span className="turnbar-hint">{phase.title} · it’s not your turn yet</span>
+            </>
+          )}
         </div>
-      )}
+        <div className="turnbar-action">
+          {isMyTurn && winner === null && pendingReaction === null && phase.action && (
+            <button className="btn btn-primary btn-lg"
+              onClick={() => void act({ type: turn.phase === "end" ? "endTurn" : turn.phase } as Action)}>
+              {phase.action}
+            </button>
+          )}
+        </div>
+      </header>
 
-      <div className="game-info">
-        <p><strong>Theme:</strong> {theme.label}</p>
-        <p><strong>Phase:</strong> {turn.phase} — <strong>Turn:</strong> {players[turn.activeSeat]?.name ?? `Seat ${turn.activeSeat}`}</p>
-        {lastRoll.length > 0 && (
-          <p><strong>Last roll:</strong> [{lastRoll.join(", ")}]</p>
-        )}
-        {error && (
-          <p className="error" role="alert" style={{ color: "red" }}>{error}</p>
-        )}
-      </div>
+      {error && <div className="toast toast-error" role="alert">{error}<button onClick={() => setError(null)} aria-label="Dismiss">✕</button></div>}
 
-      {/* Reaction window — shown when a reactable card is awaiting resolution */}
+      {/* ---- Reaction window --------------------------------------------- */}
       {pendingReaction !== null && (
-        <div className="reaction-window" role="region" aria-label="Reaction window">
+        <section className="reaction" role="region" aria-label="Reaction window">
+          <p className="reaction-headline">
+            <strong>{players[pendingReaction.actorSeat]?.name ?? `Seat ${pendingReaction.actorSeat}`}</strong>{" "}
+            played <strong>{theme.card(pendingReaction.card).name}</strong>
+            {pendingReaction.target !== undefined && <> on <strong>{players[pendingReaction.target]?.name}</strong></>}.
+          </p>
           {isMyReactionTurn && mySeat !== null ? (
-            <div className="reaction-prompt">
-              <p>
-                <strong>React?</strong>{" "}
-                {players[pendingReaction.actorSeat]?.name ?? `Seat ${pendingReaction.actorSeat}`} played{" "}
-                <strong>{theme.card(pendingReaction.card).name}</strong>
-                {pendingReaction.target !== undefined
-                  ? ` targeting ${players[pendingReaction.target]?.name ?? `Seat ${pendingReaction.target}`}`
-                  : ""}
-              </p>
-              <p>Play a reaction card or pass:</p>
-              <div className="reaction-actions">
-                {/* Render a "React with X" button for each stopper in hand */}
-                {(() => {
-                  const myPlayer = players[mySeat];
-                  if (!myPlayer) return null;
-                  const stoppers = stoppersFor(pendingReaction.card);
-                  const reactableInHand = myPlayer.hand.filter((c) => stoppers.includes(c));
-                  return reactableInHand.map((cardId, idx) => (
-                    <button
-                      key={`${cardId}-${idx}`}
-                      onClick={() => void act({ type: "react", seat: mySeat, card: cardId })}
-                    >
-                      React with {theme.card(cardId).name}
-                    </button>
-                  ));
-                })()}
-                <button onClick={() => void act({ type: "passReaction", seat: mySeat })}>
-                  Pass
+            <div className="reaction-actions">
+              {players[mySeat]!.hand.filter((c) => stoppersFor(pendingReaction.card).includes(c)).map((cardId, idx) => (
+                <button key={`${cardId}-${idx}`} className="btn btn-primary"
+                  onClick={() => void act({ type: "react", seat: mySeat, card: cardId })}>
+                  Counter with {theme.card(cardId).name}
                 </button>
-              </div>
+              ))}
+              <button className="btn btn-ghost" onClick={() => void act({ type: "passReaction", seat: mySeat })}>Let it happen</button>
             </div>
           ) : (
-            <div className="reaction-waiting">
-              <p>
-                <strong>Waiting for reactions…</strong>{" "}
-                {players[pendingReaction.actorSeat]?.name ?? `Seat ${pendingReaction.actorSeat}`} played{" "}
-                <strong>{theme.card(pendingReaction.card).name}</strong>
-              </p>
-              {(() => {
-                const stillNeedToAct = pendingReaction.eligibleReactors.filter(
-                  (s) => !pendingReaction.passed.includes(s),
-                );
-                if (stillNeedToAct.length === 0) return null;
-                return (
-                  <p>
-                    Waiting on:{" "}
-                    {stillNeedToAct
-                      .map((s) => players[s]?.name ?? `Seat ${s}`)
-                      .join(", ")}
-                  </p>
-                );
-              })()}
-            </div>
+            <p className="reaction-waiting">
+              Waiting on{" "}
+              {pendingReaction.eligibleReactors.filter((s) => !pendingReaction.passed.includes(s))
+                .map((s) => players[s]?.name ?? `Seat ${s}`).join(", ") || "resolution"}…
+            </p>
           )}
-        </div>
+        </section>
       )}
 
-      <div className="players">
-        {seatOrder.map((seat) => {
-          const p = players[seat];
-          if (!p) return null;
-          const score = playerScore(p);
-          const tree = p.standingTree;
-          const treeDisplay = tree ? theme.tree(tree.treeId) : null;
-          const isMe = mySeat === seat;
-          const isActive = turn.activeSeat === seat;
+      {/* ---- Your hand --------------------------------------------------- */}
+      {me && (
+        <section className="hand-panel">
+          <h2 className="section-title">
+            Your hand <span className="muted">({me.hand.length})</span>
+            {canPlayNow && <span className="badge badge-go">play or discard a card</span>}
+          </h2>
+          {me.hand.length === 0 ? (
+            <p className="muted">No cards in hand.</p>
+          ) : (
+            <ul className="cards">
+              {me.hand.map((cardId, idx) => {
+                const d = theme.card(cardId);
+                const key = `${cardId}-${idx}`;
+                const info = canPlayNow ? playability(cardId, mySeat!, state, seatOrder) : null;
+                const targeting = targetingCard === key;
+                return (
+                  <li key={key} className={`card cat-${categoryLabel(cardId).split("/")[0]} ${info?.mode === "none" ? "card-dim" : ""}`}>
+                    <div className="card-name">{d.name}</div>
+                    <div className="card-cat">{categoryLabel(cardId)}</div>
+                    {d.rulesText && <div className="card-text">{d.rulesText}</div>}
+                    {canPlayNow && (
+                      <div className="card-actions">
+                        {info?.mode === "self" && (
+                          <button className="btn btn-primary btn-sm" onClick={() => void act({ type: "playCard", card: cardId })}>
+                            {isAxe(cardId) ? "Equip" : "Play"}
+                          </button>
+                        )}
+                        {info?.mode === "target" && !targeting && (
+                          <button className="btn btn-primary btn-sm" onClick={() => setTargetingCard(key)}>Play ▸</button>
+                        )}
+                        {info?.mode === "target" && targeting && (
+                          <div className="targets">
+                            <span className="muted">on:</span>
+                            {info.legalTargets.map((t) => (
+                              <button key={t} className="btn btn-sm" onClick={() => void act({ type: "playCard", card: cardId, target: t })}>
+                                {players[t]?.name ?? `Seat ${t}`}
+                              </button>
+                            ))}
+                            <button className="btn btn-ghost btn-sm" onClick={() => setTargetingCard(null)}>✕</button>
+                          </div>
+                        )}
+                        {info?.mode === "none" && <span className="muted card-na">can’t play now</span>}
+                        <button className="btn btn-ghost btn-sm" onClick={() => void act({ type: "discardCard", card: cardId })}>Discard</button>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {lastRoll.length > 0 && (
+            <p className="lastroll">Last roll: {lastRoll.map((d, i) => <span key={i} className={`die ${d >= 4 ? "hit" : d === 3 ? "miss" : "low"}`}>{d}</span>)}</p>
+          )}
+        </section>
+      )}
 
-          return (
-            <div key={seat} className={`player-card ${isActive ? "active" : ""} ${isMe ? "mine" : ""}`}>
-              <h3>
-                {p.name}
-                {isMe && <span> (you)</span>}
-                {isActive && <span> ▶</span>}
-              </h3>
-              <p>Score: {score}</p>
-              <p>Axe: {p.axe !== null ? theme.card(p.axe).name : "none"}</p>
-              {treeDisplay ? (
-                <p>
-                  Standing tree: {treeDisplay.name}{" "}
-                  ({tree!.chops}/{treeDisplay.chopTarget} chops — {treeDisplay.treeScore} pts)
-                </p>
-              ) : (
-                <p>No standing tree</p>
-              )}
-              {p.scoredTrees.length > 0 && (
-                <p>
-                  Scored trees:{" "}
-                  {p.scoredTrees.map((tid) => theme.tree(tid).name).join(", ")}
-                </p>
-              )}
-
-              {/* Tableaus */}
-              {p.equipment.length > 0 && (
-                <p>Equipment: {p.equipment.map((id) => theme.card(id).name).join(", ")}</p>
-              )}
-              {p.plusMinus.length > 0 && (
-                <p>Plus/Minus: {p.plusMinus.map((id) => theme.card(id).name).join(", ")}</p>
-              )}
-              {p.help.length > 0 && (
-                <p>Help: {p.help.map((id) => theme.card(id).name).join(", ")}</p>
-              )}
-
-              {/* Only show hand for your own seat */}
-              {isMe && (
-                <div className="hand">
-                  <strong>Your hand ({p.hand.length} cards):</strong>
-                  {p.hand.length === 0 ? (
-                    <p>No cards</p>
-                  ) : (
-                    <ul>
-                      {p.hand.map((cardId, idx) => {
-                        const cat = (() => { try { return cardCategory(cardId); } catch { return null; } })();
-                        // During a reaction window, hide normal play/discard controls
-                        const canPlayNormally = isMyTurn && turn.phase === "play" && pendingReaction === null;
-                        const pInfo = canPlayNormally
-                          ? playability(cardId, seat, state, seatOrder)
-                          : null;
-                        const isTargeting = targetingCard === `${cardId}-${idx}`;
-                        const display = theme.card(cardId);
-
-                        return (
-                          <li key={`${cardId}-${idx}`}>
-                            <span
-                              title={display.rulesText || (cat ?? undefined)}
-                            >
-                              {display.name}
-                            </span>
-                            {canPlayNormally && (
-                              <>
-                                {pInfo?.mode === "self" && (
-                                  <button onClick={() => {
-                                    setTargetingCard(null);
-                                    void act({ type: "playCard", card: cardId });
-                                  }}>
-                                    {isAxe(cardId) ? "Play (equip)" : "Play"}
-                                  </button>
-                                )}
-                                {pInfo?.mode === "target" && !isTargeting && (
-                                  <button onClick={() => setTargetingCard(`${cardId}-${idx}`)}>
-                                    Play (pick target)
-                                  </button>
-                                )}
-                                {pInfo?.mode === "target" && isTargeting && (
-                                  <span>
-                                    {" → Target: "}
-                                    {pInfo.legalTargets.map((targetSeat) => (
-                                      <button
-                                        key={targetSeat}
-                                        onClick={() => {
-                                          setTargetingCard(null);
-                                          void act({ type: "playCard", card: cardId, target: targetSeat });
-                                        }}
-                                      >
-                                        {players[targetSeat]?.name ?? `Seat ${targetSeat}`}
-                                      </button>
-                                    ))}
-                                    <button onClick={() => setTargetingCard(null)}>Cancel</button>
-                                  </span>
-                                )}
-                                {pInfo?.mode === "none" && (
-                                  <span style={{ color: "gray" }}> (not playable)</span>
-                                )}
-                                <button onClick={() => {
-                                  setTargetingCard(null);
-                                  void act({ type: "discardCard", card: cardId });
-                                }}>
-                                  Discard
-                                </button>
-                              </>
-                            )}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
+      {/* ---- Players board ----------------------------------------------- */}
+      <section className="board">
+        <h2 className="section-title">Course</h2>
+        <div className="players">
+          {seatOrder.map((seat) => {
+            const p = players[seat];
+            if (!p) return null;
+            const isMe = mySeat === seat;
+            const isActive = turn.activeSeat === seat;
+            const tree = p.standingTree;
+            const td = tree ? theme.tree(tree.treeId) : null;
+            const pct = td ? Math.min(100, Math.round((tree!.chops / td.chopTarget) * 100)) : 0;
+            return (
+              <div key={seat} className={`player ${isActive ? "is-active" : ""} ${isMe ? "is-me" : ""}`}>
+                <div className="player-top">
+                  <span className="player-name">{p.name}{isMe && <span className="tag">you</span>}{isActive && <span className="tag tag-turn">turn</span>}</span>
+                  <span className="player-score">{playerScore(p)}<small> / 21</small></span>
                 </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+                {td ? (
+                  <div className="basket">
+                    <div className="basket-head"><span>{td.name}</span><span className="muted">{tree!.chops}/{td.chopTarget} · {td.treeScore} pts</span></div>
+                    <div className="bar"><div className="bar-fill" style={{ width: `${pct}%` }} /></div>
+                  </div>
+                ) : <div className="basket muted">no basket set</div>}
+                <div className="chips">
+                  <span className="chip chip-driver">{p.axe ? theme.card(p.axe).name : "no driver"}</span>
+                  {p.scoredTrees.length > 0 && <span className="chip">✓ {p.scoredTrees.length} sunk</span>}
+                  {p.skipNextTurn && <span className="chip chip-warn">skips next</span>}
+                  {p.equipment.map((id, i) => <span key={`e${i}`} className="chip">{theme.card(id).name}</span>)}
+                  {p.plusMinus.map((id, i) => <span key={`m${i}`} className="chip chip-mod">{theme.card(id).name}</span>)}
+                  {p.help.map((id, i) => <span key={`h${i}`} className="chip chip-help">{theme.card(id).name}</span>)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
 
-      {/* Action buttons — only when it's your turn AND no reaction window is open */}
-      {isMyTurn && winner === null && pendingReaction === null && (
-        <div className="actions">
-          {turn.phase === "squareUp" && (
-            <button className="btn-primary" onClick={() => act({ type: "squareUp" })}>
-              Square Up
-            </button>
-          )}
-          {turn.phase === "draw" && (
-            <button className="btn-primary" onClick={() => act({ type: "draw" })}>
-              Draw
-            </button>
-          )}
-          {turn.phase === "play" && (
-            <p className="phase-hint">Choose a card to play or discard above.</p>
-          )}
-          {turn.phase === "chop" && (
-            <button className="btn-primary" onClick={() => act({ type: "chop" })}>
-              Chop
-            </button>
-          )}
-          {turn.phase === "manageHelp" && (
-            <button className="btn-primary" onClick={() => act({ type: "manageHelp" })}>
-              Manage Help
-            </button>
-          )}
-          {turn.phase === "end" && (
-            <button className="btn-primary" onClick={() => act({ type: "endTurn" })}>
-              End Turn
-            </button>
-          )}
+      {/* ---- Win overlay ------------------------------------------------- */}
+      {winner !== null && (
+        <div className="win-overlay" role="alert">
+          <div className="win-card">
+            <div className="win-emoji">🏆</div>
+            <h2>{players[winner]?.name ?? `Seat ${winner}`} wins!</h2>
+            <button className="btn btn-primary btn-lg" onClick={() => { location.hash = "#/"; }}>Back to start</button>
+          </div>
         </div>
       )}
     </div>
