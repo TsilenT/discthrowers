@@ -24,14 +24,13 @@ function equipAxe(state: GameState, seat: Seat, cardId: CardId): void {
 }
 
 /**
- * A disc (axe) can be equipped on ANY player — yourself or an opponent. Defaults to
- * self when no target is given. Discs are one-at-a-time, so equipping always replaces
- * the recipient's current disc; playing a disc they already hold just swaps the old
- * copy for the new one (effectively a discard), so it's NOT blocked by no-doubles.
+ * A disc (axe) can be equipped on ANY player — yourself (no target) or an opponent.
+ * "No doubles": not playable on a player who already holds that exact disc. Equipping
+ * otherwise replaces the recipient's current disc (one at a time).
  */
 function axeHandler(cardId: CardId): CardHandler {
   return {
-    isPlayable: (ctx) => ctx.state.players[ctx.target ?? ctx.actorSeat] !== undefined,
+    isPlayable: (ctx) => ctx.state.players[ctx.target ?? ctx.actorSeat]?.axe !== cardId,
     play: (ctx) => equipAxe(ctx.state, ctx.target ?? ctx.actorSeat, cardId),
   };
 }

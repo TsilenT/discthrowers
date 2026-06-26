@@ -31,12 +31,17 @@ describe("any disc on any player", () => {
     expect(s.players[0]!.axe).toBeNull();
   });
 
-  it("playing a disc on someone who already holds it just swaps the copy (allowed, not blocked)", () => {
-    let s = toPlay();
+  it("no doubles: can't play a disc on a player who already holds that exact disc", () => {
+    const s = toPlay();
     s.players[0]!.hand = ["chopping-axe"];
     s.players[1]!.axe = "chopping-axe";
-    s = ok(apply(s, { type: "playCard", card: "chopping-axe", target: 1 }, mulberry32(4)));
-    expect(s.players[1]!.axe).toBe("chopping-axe"); // still has it (new copy)
-    expect(s.redDiscard).toContain("chopping-axe"); // old copy discarded
+    expect(apply(s, { type: "playCard", card: "chopping-axe", target: 1 }, mulberry32(4)).ok).toBe(false);
+  });
+
+  it("no doubles also blocks equipping a disc you already hold yourself", () => {
+    const s = toPlay();
+    s.players[0]!.hand = ["chopping-axe"];
+    s.players[0]!.axe = "chopping-axe";
+    expect(apply(s, { type: "playCard", card: "chopping-axe" }, mulberry32(4)).ok).toBe(false);
   });
 });

@@ -21,21 +21,22 @@ function playerScore(p: PlayerState): number {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const dummyRng: Rng = { nextFloat: () => 0, nextInt: () => 0, shuffle: (a: any[]) => a };
 
-type PlayabilityResult = { mode: "self" | "target" | "none"; legalTargets: Seat[] };
+type PlayabilityResult = { mode: "self" | "target" | "axe" | "none"; legalTargets: Seat[]; canEquipSelf?: boolean };
 
 function playability(cardId: string, actorSeat: Seat, state: GameState, seatOrder: Seat[]): PlayabilityResult {
   const handler = getHandler(cardId);
-  // Discs can be played on ANY player (self or opponent) — always offer a picker.
+  const oppTargets = (): Seat[] => seatOrder.filter(
+    (seat) => seat !== actorSeat && handler.isPlayable({ state, actorSeat, target: seat, rng: dummyRng } as CardContext),
+  );
+  // Discs: separate "Equip" (self) from "Play" (opponents only).
   if (isAxe(cardId)) {
-    const legalTargets = seatOrder.filter((seat) => handler.isPlayable({ state, actorSeat, target: seat, rng: dummyRng } as CardContext));
-    return legalTargets.length > 0 ? { mode: "target", legalTargets } : { mode: "none", legalTargets: [] };
+    const canEquipSelf = handler.isPlayable({ state, actorSeat, rng: dummyRng });
+    const legalTargets = oppTargets();
+    if (!canEquipSelf && legalTargets.length === 0) return { mode: "none", legalTargets: [] };
+    return { mode: "axe", canEquipSelf, legalTargets };
   }
   if (handler.isPlayable({ state, actorSeat, rng: dummyRng })) return { mode: "self", legalTargets: [] };
-  const legalTargets: Seat[] = [];
-  for (const seat of seatOrder) {
-    if (seat === actorSeat) continue;
-    if (handler.isPlayable({ state, actorSeat, target: seat, rng: dummyRng } as CardContext)) legalTargets.push(seat);
-  }
+  const legalTargets = oppTargets();
   return legalTargets.length > 0 ? { mode: "target", legalTargets } : { mode: "none", legalTargets: [] };
 }
 
@@ -232,15 +233,17 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
                       {d.rulesText && <div className="card-text">{d.rulesText}</div>}
                       {canPlayNow && (
                         <div className="card-actions">
+                          {/* Discs: Equip (self) leftmost, then Play ▸ to an opponent. */}
+                          {info?.mode === "axe" && info.canEquipSelf && (
+                            <button className="btn btn-primary btn-sm" onClick={() => void act({ type: "playCard", card: cardId })}>Equip</button>
+                          )}
                           {info?.mode === "self" && (
-                            <button className="btn btn-primary btn-sm" onClick={() => void act({ type: "playCard", card: cardId })}>
-                              {isAxe(cardId) ? "Equip" : "Play"}
-                            </button>
+                            <button className="btn btn-primary btn-sm" onClick={() => void act({ type: "playCard", card: cardId })}>Play</button>
                           )}
-                          {info?.mode === "target" && !targeting && (
-                            <button className="btn btn-primary btn-sm" onClick={() => setTargetingCard(key)}>Play ▸</button>
+                          {(info?.mode === "target" || info?.mode === "axe") && info.legalTargets.length > 0 && !targeting && (
+                            <button className="btn btn-sm" onClick={() => setTargetingCard(key)}>Play ▸</button>
                           )}
-                          {info?.mode === "target" && targeting && (
+                          {(info?.mode === "target" || info?.mode === "axe") && info.legalTargets.length > 0 && targeting && (
                             <div className="targets">
                               <span className="muted">on:</span>
                               {info.legalTargets.map((t) => (
