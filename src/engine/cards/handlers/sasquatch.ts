@@ -30,13 +30,17 @@ export const sasquatchHandlers: Record<string, CardHandler> = {
     play(ctx: CardContext): void {
       const s = ctx.state;
       wipeAllHelp(s);
+      const rolls: { seat: number; roll: number; failed: boolean }[] = [];
+      const failed: number[] = [];
       for (const seat of s.seatOrder) {
         if (seat === ctx.actorSeat) continue;
         const roll = ctx.rng.nextInt(6) + 1;
-        if (roll <= 3) {
-          skipTurn(s, seat);
-        }
+        const isFail = roll <= 3;
+        rolls.push({ seat, roll, failed: isFail });
+        if (isFail) { skipTurn(s, seat); failed.push(seat); }
       }
+      s.lastSighting = { actor: ctx.actorSeat, rolls };
+      (s.log ??= []).push({ k: "sighting", actor: ctx.actorSeat, failed });
     },
   },
 

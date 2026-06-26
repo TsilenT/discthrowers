@@ -55,7 +55,14 @@ export type LogEntry =
   | { k: "contest"; card: CardId; winner: Seat; winnerRoll: number; loserRoll: number }
   | { k: "longSawPass"; from: Seat; to: Seat }
   | { k: "assist"; by: Seat; target: Seat; landed: boolean }
+  | { k: "sighting"; actor: Seat; failed: Seat[] }
   | { k: "win"; seat: Seat };
+
+/** The most recent Hooligan Sighting roll-off, surfaced for a reveal popup. */
+export interface SightingReveal {
+  actor: Seat;
+  rolls: { seat: Seat; roll: number; failed: boolean }[];
+}
 
 /** The most recent contest dice-off, surfaced for a reveal popup. */
 export interface ContestReveal {
@@ -85,6 +92,8 @@ export interface GameState {
   log?: LogEntry[];
   /** The most recent contest result, for the reveal popup (optional). */
   lastContest?: ContestReveal | null;
+  /** The most recent Hooligan Sighting roll-off, for the reveal popup (optional). */
+  lastSighting?: SightingReveal | null;
 }
 
 export type Action =

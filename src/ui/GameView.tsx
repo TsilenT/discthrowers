@@ -81,6 +81,7 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
   const [targetingCard, setTargetingCard] = useState<string | null>(null);
   const [tab, setTab] = useState<"hand" | "log">("hand");
   const [dismissedContest, setDismissedContest] = useState<string>("");
+  const [dismissedSighting, setDismissedSighting] = useState<string>("");
   const [scoreDetail, setScoreDetail] = useState<Seat | null>(null);
 
   const act = async (action: Action) => {
@@ -139,6 +140,7 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
       case "contest": return `${theme.card(e.card).name}: ${name(e.winner)} won the roll-off (${e.winnerRoll} vs ${e.loserRoll})`;
       case "longSawPass": return `↪ ${theme.card("long-saw-and-partner").name} passed from ${name(e.from)} to ${name(e.to)}`;
       case "assist": return `🤲 ${name(e.by)}’s ${theme.card("give-me-a-hand").name} on ${name(e.target)}’s throw — ${e.landed ? "landed a throw" : "whiffed"}`;
+      case "sighting": return `👀 ${theme.card("sasquatch-sighting").name} — ${e.failed.length ? `${e.failed.map(name).join(", ")} lose${e.failed.length === 1 ? "s" : ""} a turn` : "everyone dodged it"}`;
       case "win": return `🏆 ${name(e.seat)} wins!`;
     }
   };
@@ -146,6 +148,10 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
   const contest = state.lastContest ?? null;
   const contestKey = contest ? JSON.stringify(contest) : "";
   const showContest = contest !== null && contestKey !== dismissedContest;
+
+  const sighting = state.lastSighting ?? null;
+  const sightingKey = sighting ? JSON.stringify(sighting) : "";
+  const showSighting = sighting !== null && !showContest && sightingKey !== dismissedSighting;
 
   return (
     <div className="game">
@@ -351,6 +357,26 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
             </div>
             <p className="contest-result">🏆 {name(contest.winner)} wins the roll-off</p>
             <button className="btn btn-primary btn-lg" onClick={() => setDismissedContest(contestKey)}>Continue</button>
+          </div>
+        </div>
+      )}
+
+      {/* ---- Hooligan Sighting roll-off popup --------------------------- */}
+      {showSighting && sighting && (
+        <div className="overlay" role="alert">
+          <div className="contest-card">
+            <h3>{theme.card("sasquatch-sighting").name}</h3>
+            <p className="muted">{name(sighting.actor)} spooked the course — everyone else rolls (1–3 loses a turn)</p>
+            <div className="contest-rolls">
+              {sighting.rolls.map((r) => (
+                <div key={r.seat} className={`contest-side ${r.failed ? "" : "won"}`}>
+                  <div className="contest-name">{name(r.seat)}</div>
+                  <PipDie value={r.roll} outcome={r.failed ? "low" : "hit"} />
+                  <div className="muted">{r.failed ? "loses turn" : "safe"}</div>
+                </div>
+              ))}
+            </div>
+            <button className="btn btn-primary btn-lg" onClick={() => setDismissedSighting(sightingKey)}>Continue</button>
           </div>
         </div>
       )}
