@@ -49,20 +49,34 @@ h1, h2, h3 { margin: 0 0 0.5rem; font-weight: 700; }
 .btn-lg { padding: 0.7rem 1.4rem; font-size: 1.05rem; border-radius: 12px; box-shadow: var(--shadow); }
 
 /* ---------- Game layout ---------- */
-.game { max-width: 1000px; margin: 0 auto; padding: 0 1rem 3rem; }
+.game { max-width: 1000px; margin: 0 auto; padding: 0 1rem 7.5rem; }
 
-.turnbar {
+/* Top header: brand + animated dice */
+.topbar {
   position: sticky; top: 0; z-index: 20;
-  display: flex; align-items: center; gap: 1rem;
-  margin: 0 -1rem 0.5rem; padding: 0.7rem 1rem;
-  background: linear-gradient(180deg, #16302190, #14271bF2);
+  display: flex; align-items: center; gap: 1rem; min-height: 56px;
+  margin: 0 -1rem 0.5rem; padding: 0.5rem 1rem;
+  background: linear-gradient(180deg, #163021f2, #14271bf2);
   backdrop-filter: blur(8px); border-bottom: 1px solid var(--line);
 }
-.turnbar-brand { font-weight: 800; font-size: 1.05rem; white-space: nowrap; }
-.turnbar-status { flex: 1; display: flex; flex-direction: column; line-height: 1.25; }
-.turnbar-title { font-weight: 700; font-size: 1.05rem; }
-.turnbar-hint { color: var(--muted); font-size: 0.86rem; }
-.turnbar-action { margin-left: auto; }
+.brand { font-weight: 800; font-size: 1.1rem; white-space: nowrap; }
+.topbar .dice { margin-left: auto; }
+
+/* Floating bottom action bar */
+.actionbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  display: flex; justify-content: center;
+  padding: 0.6rem 1rem calc(0.6rem + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(0deg, #0c1810f7, #14271be0);
+  backdrop-filter: blur(10px); border-top: 1px solid var(--line);
+}
+.actionbar-inner { width: 100%; max-width: 1000px; display: flex; align-items: center; gap: 1rem; }
+.ab-status { flex: 1; display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+.ab-title { font-weight: 700; font-size: 1.05rem; }
+.ab-hint { color: var(--muted); font-size: 0.85rem; }
+.ab-actions { margin-left: auto; display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.ab-reaction { display: flex; align-items: center; gap: 1rem; width: 100%; }
+.ab-reaction .ab-title { color: var(--gold); }
 
 /* ---------- Toast / errors ---------- */
 .toast { display: flex; align-items: center; gap: .75rem; padding: .6rem .9rem; border-radius: 10px; margin: .5rem 0; }
@@ -98,11 +112,28 @@ h1, h2, h3 { margin: 0 0 0.5rem; font-weight: 700; }
 .card.cat-reaction { border-left-color: #2dd4bf; }
 .card.cat-contest { border-left-color: #fb923c; }
 
-.lastroll { margin: .8rem 0 0; display: flex; align-items: center; gap: .4rem; color: var(--muted); }
-.die { display: inline-grid; place-items: center; width: 1.6rem; height: 1.6rem; border-radius: 6px; font-weight: 800; color: #0b1f14; background: #cbd5d1; }
-.die.hit { background: var(--accent); }
-.die.miss { background: var(--gold); }
-.die.low { background: var(--danger); }
+/* ---------- Dice (pip faces, tumble animation) ---------- */
+.dice { display: flex; gap: 6px; flex-wrap: wrap; }
+.die {
+  display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
+  width: 30px; height: 30px; padding: 4px; border-radius: 7px;
+  background: linear-gradient(150deg, #fbf7ee 0%, #ddd6c4 100%);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.18), 0 2px 5px rgba(0,0,0,.45);
+}
+.die .pip { display: flex; align-items: center; justify-content: center; }
+.die .pip--on::after { content: ""; width: 5px; height: 5px; border-radius: 50%; background: #1c2027; }
+.die--hit  { background: linear-gradient(150deg, #86efac, #34a866); }
+.die--miss { background: linear-gradient(150deg, #fde68a, #d99e1a); }
+.die--low  { background: linear-gradient(150deg, #fca5a5, #d65555); }
+.die--rolling { animation: die-tumble 0.6s ease-in-out; }
+@keyframes die-tumble {
+  0%   { transform: rotate(0) scale(1); }
+  25%  { transform: rotate(-22deg) translateY(-8px) scale(1.1); }
+  50%  { transform: rotate(18deg)  translateY(0)    scale(1.05); }
+  75%  { transform: rotate(-8deg)  translateY(-3px) scale(1.02); }
+  100% { transform: rotate(0) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) { .die--rolling { animation: none; } }
 
 /* ---------- Board ---------- */
 .players { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: .8rem; }
@@ -169,7 +200,9 @@ button:not(.btn):hover { border-color: var(--accent); }
 button:not(.btn):disabled { opacity: .45; cursor: not-allowed; }
 
 @media (max-width: 560px) {
-  .turnbar { flex-wrap: wrap; }
-  .turnbar-action { width: 100%; }
-  .turnbar-action .btn { width: 100%; }
+  .actionbar-inner { flex-direction: column; align-items: stretch; gap: 0.5rem; }
+  .ab-actions { margin-left: 0; }
+  .ab-actions .btn { flex: 1; }
+  .ab-reaction { flex-direction: column; align-items: stretch; }
+  .game { padding-bottom: 9.5rem; }
 }
