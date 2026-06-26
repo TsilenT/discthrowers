@@ -1,5 +1,5 @@
 import { resolveChop, rollDice } from "./chop";
-import { cardCategory, isAxe, redCard, treeStats } from "./cards/catalog";
+import { cardCategory, redCard, treeStats } from "./cards/catalog";
 import { getHandler } from "./cards/registry";
 import { reactionHandlers } from "./cards/handlers/reaction";
 import type { CardContext } from "./cards/ctx";
@@ -156,16 +156,8 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
       const idx = p.hand.indexOf(action.card);
       if (idx === -1) return fail("Card not in hand");
       const card = action.card;
-      if (isAxe(card)) {
-        // Axe cards: equip and advance to chop
-        p.hand.splice(idx, 1);
-        if (p.axe !== null) s.redDiscard.push(p.axe); // one axe at a time
-        p.axe = card;
-        s.turn.phase = "chop";
-        s.version++;
-        return { ok: true, state: s };
-      }
-      // Non-axe cards: route through the handler registry
+      // All cards (including axes) route through the handler registry so targeting,
+      // "one axe at a time", and "no doubles" are enforced consistently.
       const activeSeat = s.turn.activeSeat;
       const ctx: CardContext = action.target !== undefined
         ? { state: s, actorSeat: activeSeat, target: action.target, rng }
@@ -378,11 +370,14 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
       const hp = s.players[seat]!;
       // Snapshot the help array since long-saw-and-partner may modify it mid-loop
       const helpSnapshot = [...hp.help];
+      const helpDice: number[] = []; // surfaced via lastRoll so the UI shows helper rolls
       for (const helpCard of helpSnapshot) {
         const effect = redCard(helpCard).effect;
         const numDice = (effect["manageHelpDice"] as number | undefined) ?? 0;
         if (numDice <= 0) continue;
         const dice = rollDice(numDice, rng);
+        helpDice.push(...dice);
+        s.lastRoll = [...helpDice];
         let chops = 0;
         for (const d of dice) { if (d >= 4) chops++; }
         if (chops > 0 && hp.standingTree) {
