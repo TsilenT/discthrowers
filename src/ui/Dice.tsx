@@ -13,6 +13,19 @@ const PIPS: Record<number, number[]> = {
 const prefersReducedMotion = () =>
   typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+/** A single static pip die (for the contest reveal etc.). */
+export function PipDie({ value, outcome }: { value: number; outcome?: "hit" | "miss" | "low" | null }) {
+  const pips = PIPS[value] ?? [];
+  const cls = ["die", outcome && `die--${outcome}`].filter(Boolean).join(" ");
+  return (
+    <span className={cls} data-value={value} aria-hidden="true">
+      {Array.from({ length: 9 }, (_, cell) => (
+        <span key={cell} className={pips.includes(cell) ? "pip pip--on" : "pip"} />
+      ))}
+    </span>
+  );
+}
+
 function Die({ value, rolling, outcome, index }: {
   value: number; rolling: boolean; outcome: "hit" | "miss" | "low" | null; index: number;
 }) {

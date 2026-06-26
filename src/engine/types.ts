@@ -43,6 +43,28 @@ export interface PlayerState {
 
 export interface TurnState { activeSeat: Seat; phase: Phase; }
 
+/** A structured event-log entry; rendered to display text in the UI (via the theme). */
+export type LogEntry =
+  | { k: "turn"; seat: Seat }
+  | { k: "play"; seat: Seat; card: CardId; target?: Seat }
+  | { k: "discard"; seat: Seat; card: CardId }
+  | { k: "chop"; seat: Seat; chops: number; broke: boolean }
+  | { k: "help"; seat: Seat; chops: number }
+  | { k: "timber"; seat: Seat; tree: TreeId }
+  | { k: "react"; seat: Seat; card: CardId; stopped: CardId }
+  | { k: "contest"; card: CardId; winner: Seat; winnerRoll: number; loserRoll: number }
+  | { k: "win"; seat: Seat };
+
+/** The most recent contest dice-off, surfaced for a reveal popup. */
+export interface ContestReveal {
+  card: CardId;
+  challenger: Seat;
+  opponent: Seat;
+  challengerRoll: number;
+  opponentRoll: number;
+  winner: Seat;
+}
+
 export interface GameState {
   version: number;
   players: Record<number, PlayerState>;
@@ -57,6 +79,10 @@ export interface GameState {
   winner: Seat | null;
   /** Non-null when a reactable card is awaiting reactions/passes before resolving. */
   pendingReaction: PendingReaction | null;
+  /** Append-only event log (optional; defaulted to [] by state init and normalize). */
+  log?: LogEntry[];
+  /** The most recent contest result, for the reveal popup (optional). */
+  lastContest?: ContestReveal | null;
 }
 
 export type Action =

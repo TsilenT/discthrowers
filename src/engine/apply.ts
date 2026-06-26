@@ -6,12 +6,19 @@ import type { CardContext } from "./cards/ctx";
 import { collectChopDice, consumePlusMinusAfterRoll } from "./dice";
 import type { Rng } from "./rng";
 import { isReactable, eligibleReactors, stoppersFor } from "./reactions";
-import { WIN_SCORE, type Action, type ApplyResult, type CardId, type GameState, type PlayerState, type Seat } from "./types";
+import { WIN_SCORE, type Action, type ApplyResult, type CardId, type GameState, type LogEntry, type PlayerState, type Seat } from "./types";
 
 const clone = (s: GameState): GameState => structuredClone(s);
 const fail = (error: string): ApplyResult => ({ ok: false, error });
 
 function active(s: GameState) { return s.players[s.turn.activeSeat]!; }
+
+/** Append an event-log entry, capping the log so it can't grow unbounded. */
+function pushLog(s: GameState, entry: LogEntry): void {
+  const log = (s.log ??= []);
+  log.push(entry);
+  if (log.length > 80) s.log = log.slice(-80);
+}
 
 function scoreOf(p: { scoredTrees: string[]; speedClimbPoints: number }): number {
   let total = p.speedClimbPoints;
@@ -56,10 +63,12 @@ function checkFellAndWin(s: GameState, seat: number): boolean {
   s.chopStockpile += tree.chops;
   s.treeDiscard.push(tree.treeId);
   p.scoredTrees.push(tree.treeId);
+  pushLog(s, { k: "timber", seat, tree: tree.treeId });
   p.standingTree = null;
   if (scoreOf(p) >= WIN_SCORE) {
     s.winner = seat;
     s.turn.phase = "gameOver";
+    pushLog(s, { k: "win", seat });
     return true;
   }
   return false;
@@ -78,7 +87,7 @@ function checkAnyWin(s: GameState): boolean {
     const sc = scoreOf(s.players[seat]!);
     if (sc >= WIN_SCORE && sc > bestScore) { bestScore = sc; best = seat; }
   }
-  if (best !== null) { s.winner = best; s.turn.phase = "gameOver"; return true; }
+  if (best !== null) { s.winner = best; s.turn.phase = "gameOver"; pushLog(s, { k: "win", seat: best }); return true; }
   return false;
 }
 
@@ -166,6 +175,9 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
       if (!handler.isPlayable(ctx)) return fail("That card is not playable in this situation");
       // Remove card from hand
       p.hand.splice(idx, 1);
+      pushLog(s, action.target !== undefined
+        ? { k: "play", seat: activeSeat, card, target: action.target }
+        : { k: "play", seat: activeSeat, card });
 
       // Check if the card is reactable and there are eligible reactors
       const reactors = isReactable(card) ? eligibleReactors(s, activeSeat, card) : [];
@@ -204,6 +216,7 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
       }
       p.hand.splice(idx, 1);
       s.redDiscard.push(action.card);
+      pushLog(s, { k: "discard", seat: s.turn.activeSeat, card: action.card });
       s.turn.phase = "chop";
       s.version++;
       return { ok: true, state: s };
@@ -224,6 +237,7 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
 
       // Cancel the pending card: discard it to redDiscard (no effect)
       s.redDiscard.push(pr.card);
+      pushLog(s, { k: "react", seat: action.seat, card: action.card, stopped: pr.card });
 
       // Apply the reaction handler's side effect if any (e.g. northern-justice)
       const rh = reactionHandlers[action.card];
@@ -359,7 +373,9 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
       s.chopStockpile -= gained;
       consumePlusMinusAfterRoll(s, s.turn.activeSeat);
       if (checkFellAndWin(s, s.turn.activeSeat)) { s.version++; return { ok: true, state: s }; }
-      if (axeBreaks && p.axe) { s.redDiscard.push(p.axe); p.axe = null; }
+      const broke = axeBreaks && p.axe !== null;
+      if (broke) { s.redDiscard.push(p.axe!); p.axe = null; }
+      pushLog(s, { k: "chop", seat: s.turn.activeSeat, chops: gained, broke });
       s.turn.phase = "manageHelp";
       s.version++;
       return { ok: true, state: s };
@@ -371,6 +387,7 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
       // Snapshot the help array since long-saw-and-partner may modify it mid-loop
       const helpSnapshot = [...hp.help];
       const helpDice: number[] = []; // surfaced via lastRoll so the UI shows helper rolls
+      let helpChops = 0;
       for (const helpCard of helpSnapshot) {
         const effect = redCard(helpCard).effect;
         const numDice = (effect["manageHelpDice"] as number | undefined) ?? 0;
@@ -384,6 +401,7 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
           const gained = Math.min(chops, s.chopStockpile);
           hp.standingTree.chops += gained;
           s.chopStockpile -= gained;
+          helpChops += gained;
           // Check fell/score/win after each help card
           if (checkFellAndWin(s, seat)) { s.version++; return { ok: true, state: s }; }
         }
@@ -407,6 +425,7 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
           }
         }
       }
+      if (helpDice.length > 0) pushLog(s, { k: "help", seat, chops: helpChops });
       s.turn.phase = "end";
       s.version++;
       return { ok: true, state: s };
@@ -432,6 +451,7 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
       }
       s.turn = { activeSeat: order[i]!, phase: "squareUp" };
       s.lastRoll = []; // clear the previous turn's dice so the strip reflects the current turn
+      pushLog(s, { k: "turn", seat: order[i]! });
       s.version++;
       return { ok: true, state: s };
     }

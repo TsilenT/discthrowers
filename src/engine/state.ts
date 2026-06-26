@@ -25,5 +25,6 @@ export function createInitialGame(seats: SeatInfo[], rng: Rng): GameState {
     chopStockpile: CHOP_STOCKPILE,
     turn: { activeSeat: seatOrder[0]!, phase: "squareUp" },
     lastRoll: [], winner: null, pendingReaction: null,
+    log: [], lastContest: null,
   };
 }

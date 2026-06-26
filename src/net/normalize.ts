@@ -13,6 +13,8 @@ export function normalizeState(raw: GameState | null): GameState | null {
   // Scalar fields RTDB drops when falsy (e.g. null winner, zero version)
   s.winner = s.winner ?? null;
   s.pendingReaction = s.pendingReaction ?? null;
+  s.lastContest = s.lastContest ?? null;
+  s.log = s.log ?? [];
 
   // Top-level arrays — RTDB drops these when empty
   s.seatOrder = s.seatOrder ?? [];

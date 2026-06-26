@@ -5,10 +5,10 @@ import { getHandler } from "../engine/cards/registry";
 import { cardCategory } from "../engine/cards/catalog";
 import { stoppersFor } from "../engine/reactions";
 import { getTheme, DEFAULT_THEME } from "../content";
-import { Dice } from "./Dice";
+import { Dice, PipDie } from "./Dice";
 import type { ThemeContent } from "../content";
 import type { CardContext } from "../engine/cards/ctx";
-import type { GameState, PlayerState, Action, Seat, Phase } from "../engine/types";
+import type { GameState, PlayerState, Action, Seat, Phase, LogEntry } from "../engine/types";
 import type { Rng } from "../engine/rng";
 
 function playerScore(p: PlayerState): number {
@@ -47,7 +47,6 @@ function categoryLabel(id: string): string {
   try { return cardCategory(id).replace("-", "/"); } catch { return "card"; }
 }
 
-/** A phase the controlling player would click through with no effect/decision → auto-advance it. */
 function noOpAction(state: GameState): Action | null {
   const { turn, players } = state;
   const p = players[turn.activeSeat];
@@ -68,6 +67,8 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
 
   const [error, setError] = useState<string | null>(null);
   const [targetingCard, setTargetingCard] = useState<string | null>(null);
+  const [tab, setTab] = useState<"hand" | "log">("hand");
+  const [dismissedContest, setDismissedContest] = useState<string>("");
 
   const act = async (action: Action) => {
     setError(null);
@@ -88,7 +89,7 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
     const auto = noOpAction(state);
     if (!auto) return;
     const key = `${state.version}:${turn.phase}`;
-    if (autoRef.current === key) return; // already fired for this state
+    if (autoRef.current === key) return;
     autoRef.current = key;
     void dispatch(auto);
   }, [state, canTakeTurn, turn.phase, dispatch]);
@@ -102,6 +103,25 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
   const handPlayer = handSeat !== null ? players[handSeat] : undefined;
   const canPlayNow = canTakeTurn && turn.phase === "play";
 
+  const name = (seat: Seat) => players[seat]?.name ?? `Seat ${seat}`;
+  const logText = (e: LogEntry): string => {
+    switch (e.k) {
+      case "turn": return `▶ ${name(e.seat)}’s turn`;
+      case "play": return `${name(e.seat)} played ${theme.card(e.card).name}${e.target !== undefined ? ` on ${name(e.target)}` : ""}`;
+      case "discard": return `${name(e.seat)} discarded ${theme.card(e.card).name}`;
+      case "chop": return `${name(e.seat)} threw — ${e.chops} landed${e.broke ? ", driver broke!" : ""}`;
+      case "help": return `${name(e.seat)}’s helpers threw — ${e.chops} landed`;
+      case "timber": return `🪣 ${name(e.seat)} sank ${theme.tree(e.tree).name}`;
+      case "react": return `${name(e.seat)} countered ${theme.card(e.stopped).name} with ${theme.card(e.card).name}`;
+      case "contest": return `${theme.card(e.card).name}: ${name(e.winner)} won the roll-off (${e.winnerRoll} vs ${e.loserRoll})`;
+      case "win": return `🏆 ${name(e.seat)} wins!`;
+    }
+  };
+
+  const contest = state.lastContest ?? null;
+  const contestKey = contest ? JSON.stringify(contest) : "";
+  const showContest = contest !== null && contestKey !== dismissedContest;
+
   return (
     <div className="game">
       {/* ---- Top: brand + animated dice --------------------------------- */}
@@ -112,9 +132,8 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
 
       {error && <div className="toast toast-error" role="alert">{error}<button onClick={() => setError(null)} aria-label="Dismiss">✕</button></div>}
 
-      {/* ---- Course (players board) at the top -------------------------- */}
+      {/* ---- Course (compact) ------------------------------------------- */}
       <section className="board">
-        <h2 className="section-title">Course</h2>
         <div className="players">
           {seatOrder.map((seat) => {
             const p = players[seat];
@@ -132,14 +151,14 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
                 </div>
                 {td ? (
                   <div className="basket">
-                    <div className="basket-head"><span>{td.name}</span><span className="muted">{tree!.chops}/{td.chopTarget} · {td.treeScore} pts</span></div>
+                    <div className="basket-head"><span>{td.name}</span><span className="muted">{tree!.chops}/{td.chopTarget} · {td.treeScore}pt</span></div>
                     <div className="bar"><div className="bar-fill" style={{ width: `${pct}%` }} /></div>
                   </div>
                 ) : <div className="basket muted">no basket set</div>}
                 <div className="chips">
                   <span className="chip chip-driver">{p.axe ? theme.card(p.axe).name : "no driver"}</span>
-                  {p.scoredTrees.length > 0 && <span className="chip">✓ {p.scoredTrees.length} sunk</span>}
-                  {p.skipNextTurn && <span className="chip chip-warn">skips next</span>}
+                  {p.scoredTrees.length > 0 && <span className="chip">✓{p.scoredTrees.length}</span>}
+                  {p.skipNextTurn && <span className="chip chip-warn">skips</span>}
                   {p.equipment.map((id, i) => <span key={`e${i}`} className="chip">{theme.card(id).name}</span>)}
                   {p.plusMinus.map((id, i) => <span key={`m${i}`} className="chip chip-mod">{theme.card(id).name}</span>)}
                   {p.help.map((id, i) => <span key={`h${i}`} className="chip chip-help">{theme.card(id).name}</span>)}
@@ -150,59 +169,79 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
         </div>
       </section>
 
-      {/* ---- Hand ------------------------------------------------------- */}
-      {handPlayer && (
-        <section className="hand-panel">
-          <h2 className="section-title">
-            {hotseat ? `${handPlayer.name}’s hand` : "Your hand"} <span className="muted">({handPlayer.hand.length})</span>
-            {canPlayNow && <span className="badge badge-go">play or discard a card</span>}
-          </h2>
-          {handPlayer.hand.length === 0 ? (
-            <p className="muted">No cards in hand.</p>
-          ) : (
-            <ul className="cards">
-              {handPlayer.hand.map((cardId, idx) => {
-                const d = theme.card(cardId);
-                const key = `${cardId}-${idx}`;
-                const info = canPlayNow ? playability(cardId, turn.activeSeat, state, seatOrder) : null;
-                const targeting = targetingCard === key;
-                return (
-                  <li key={key} className={`card cat-${categoryLabel(cardId).split("/")[0]} ${info?.mode === "none" ? "card-dim" : ""}`}>
-                    <div className="card-name">{d.name}</div>
-                    <div className="card-cat">{categoryLabel(cardId)}</div>
-                    {d.rulesText && <div className="card-text">{d.rulesText}</div>}
-                    {canPlayNow && (
-                      <div className="card-actions">
-                        {info?.mode === "self" && (
-                          <button className="btn btn-primary btn-sm" onClick={() => void act({ type: "playCard", card: cardId })}>
-                            {isAxe(cardId) ? "Equip" : "Play"}
-                          </button>
-                        )}
-                        {info?.mode === "target" && !targeting && (
-                          <button className="btn btn-primary btn-sm" onClick={() => setTargetingCard(key)}>Play ▸</button>
-                        )}
-                        {info?.mode === "target" && targeting && (
-                          <div className="targets">
-                            <span className="muted">on:</span>
-                            {info.legalTargets.map((t) => (
-                              <button key={t} className="btn btn-sm" onClick={() => void act({ type: "playCard", card: cardId, target: t })}>
-                                {players[t]?.name ?? `Seat ${t}`}
-                              </button>
-                            ))}
-                            <button className="btn btn-ghost btn-sm" onClick={() => setTargetingCard(null)}>✕</button>
-                          </div>
-                        )}
-                        {info?.mode === "none" && <span className="muted card-na">can’t play now</span>}
-                        <button className="btn btn-ghost btn-sm" onClick={() => void act({ type: "discardCard", card: cardId })}>Discard</button>
-                      </div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
-      )}
+      {/* ---- Tabbed panel: Hand | Log ----------------------------------- */}
+      <section className="panel">
+        <div className="tabs">
+          <button className={`tab ${tab === "hand" ? "tab-on" : ""}`} onClick={() => setTab("hand")}>
+            {hotseat && handPlayer ? `${handPlayer.name}’s hand` : "Hand"}{handPlayer ? ` (${handPlayer.hand.length})` : ""}
+            {canPlayNow && <span className="dot" />}
+          </button>
+          <button className={`tab ${tab === "log" ? "tab-on" : ""}`} onClick={() => setTab("log")}>Log</button>
+        </div>
+
+        {tab === "hand" ? (
+          <div className="panel-body">
+            {!handPlayer ? (
+              <p className="muted">No hand to show.</p>
+            ) : handPlayer.hand.length === 0 ? (
+              <p className="muted">No cards in hand.</p>
+            ) : (
+              <ul className="cards">
+                {handPlayer.hand.map((cardId, idx) => {
+                  const d = theme.card(cardId);
+                  const key = `${cardId}-${idx}`;
+                  const info = canPlayNow ? playability(cardId, turn.activeSeat, state, seatOrder) : null;
+                  const targeting = targetingCard === key;
+                  return (
+                    <li key={key} className={`card cat-${categoryLabel(cardId).split("/")[0]} ${info?.mode === "none" ? "card-dim" : ""}`}>
+                      <div className="card-name">{d.name}</div>
+                      <div className="card-cat">{categoryLabel(cardId)}</div>
+                      {d.rulesText && <div className="card-text">{d.rulesText}</div>}
+                      {canPlayNow && (
+                        <div className="card-actions">
+                          {info?.mode === "self" && (
+                            <button className="btn btn-primary btn-sm" onClick={() => void act({ type: "playCard", card: cardId })}>
+                              {isAxe(cardId) ? "Equip" : "Play"}
+                            </button>
+                          )}
+                          {info?.mode === "target" && !targeting && (
+                            <button className="btn btn-primary btn-sm" onClick={() => setTargetingCard(key)}>Play ▸</button>
+                          )}
+                          {info?.mode === "target" && targeting && (
+                            <div className="targets">
+                              <span className="muted">on:</span>
+                              {info.legalTargets.map((t) => (
+                                <button key={t} className="btn btn-sm" onClick={() => void act({ type: "playCard", card: cardId, target: t })}>
+                                  {players[t]?.name ?? `Seat ${t}`}
+                                </button>
+                              ))}
+                              <button className="btn btn-ghost btn-sm" onClick={() => setTargetingCard(null)}>✕</button>
+                            </div>
+                          )}
+                          {info?.mode === "none" && <span className="muted card-na">can’t play now</span>}
+                          <button className="btn btn-ghost btn-sm" onClick={() => void act({ type: "discardCard", card: cardId })}>Discard</button>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        ) : (
+          <div className="panel-body">
+            {(state.log ?? []).length === 0 ? (
+              <p className="muted">No events yet.</p>
+            ) : (
+              <ul className="log">
+                {[...(state.log ?? [])].slice().reverse().map((e, i) => (
+                  <li key={i} className={`log-${e.k}`}>{logText(e)}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </section>
 
       {/* ---- Floating action bar (bottom) ------------------------------- */}
       <div className="actionbar">
@@ -255,9 +294,32 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
         </div>
       </div>
 
+      {/* ---- Contest reveal popup --------------------------------------- */}
+      {showContest && contest && (
+        <div className="overlay" role="alert">
+          <div className="contest-card">
+            <h3>{theme.card(contest.card).name}</h3>
+            <p className="muted">Roll-off</p>
+            <div className="contest-rolls">
+              <div className={`contest-side ${contest.winner === contest.challenger ? "won" : ""}`}>
+                <div className="contest-name">{name(contest.challenger)}</div>
+                <PipDie value={contest.challengerRoll} outcome={contest.winner === contest.challenger ? "hit" : "low"} />
+              </div>
+              <div className="contest-vs">vs</div>
+              <div className={`contest-side ${contest.winner === contest.opponent ? "won" : ""}`}>
+                <div className="contest-name">{name(contest.opponent)}</div>
+                <PipDie value={contest.opponentRoll} outcome={contest.winner === contest.opponent ? "hit" : "low"} />
+              </div>
+            </div>
+            <p className="contest-result">🏆 {name(contest.winner)} wins the roll-off</p>
+            <button className="btn btn-primary btn-lg" onClick={() => setDismissedContest(contestKey)}>Continue</button>
+          </div>
+        </div>
+      )}
+
       {/* ---- Win overlay ------------------------------------------------ */}
       {winner !== null && (
-        <div className="win-overlay" role="alert">
+        <div className="overlay" role="alert">
           <div className="win-card">
             <div className="win-emoji">🏆</div>
             <h2>{players[winner]?.name ?? `Seat ${winner}`} wins!</h2>

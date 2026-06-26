@@ -2,18 +2,18 @@
  * Contest card handlers: axe-throw, chainsaw-carving, log-rolling, speed-climb.
  *
  * Contests resolve inline via RNG (no reaction window; opponent does not act).
- * Each card is targeted at "opponent" — isPlayable requires:
- *   - ctx.target !== undefined
- *   - ctx.target !== ctx.actorSeat
- *   - the target seat exists in state.players
+ * Each card is targeted at "opponent" — isPlayable requires a valid opponent.
  *
- * After a contest, the HANDLER controls card placement (not resolvePlayedCard).
- * The "contest" category is excluded from the auto-discard in resolvePlayedCard.
+ * A shared resolver rolls the dice-off once, records the result on state.lastContest
+ * (for the reveal popup) and the event log, and returns winner/loser seats. Each card
+ * then applies its own effect. The "contest" category is excluded from auto-discard in
+ * resolvePlayedCard — the handler controls placement.
  */
 import type { CardHandler } from "../registry";
 import type { CardContext } from "../ctx";
 import { rollContest } from "../../contest";
 import { skipTurn } from "../primitives";
+import type { CardId, GameState, Seat } from "../../types";
 
 function isValidOpponent(ctx: CardContext): boolean {
   if (ctx.target === undefined) return false;
@@ -22,96 +22,62 @@ function isValidOpponent(ctx: CardContext): boolean {
   return true;
 }
 
+/** Roll the dice-off, record the reveal + log entry, and return the seats. */
+function resolveContest(state: GameState, card: CardId, challenger: Seat, opponent: Seat, rng: CardContext["rng"]): {
+  winnerSeat: Seat; loserSeat: Seat;
+} {
+  const result = rollContest(rng);
+  const winnerSeat = result.challengerWins ? challenger : opponent;
+  const loserSeat = result.challengerWins ? opponent : challenger;
+  const winnerRoll = result.challengerWins ? result.challengerRoll : result.opponentRoll;
+  const loserRoll = result.challengerWins ? result.opponentRoll : result.challengerRoll;
+  state.lastContest = {
+    card, challenger, opponent,
+    challengerRoll: result.challengerRoll,
+    opponentRoll: result.opponentRoll,
+    winner: winnerSeat,
+  };
+  (state.log ??= []).push({ k: "contest", card, winner: winnerSeat, winnerRoll, loserRoll });
+  return { winnerSeat, loserSeat };
+}
+
 export const contestHandlers: Record<string, CardHandler> = {
-  /**
-   * Axe Throw: winner gets +2 dice on their next chopping roll.
-   * Implemented by pushing "axe-throw" into the winner's plusMinus.
-   * dice.ts reads effect.winnerDiceModifier (=2) as the modifier.
-   * scope is "next-roll" → consumePlusMinusAfterRoll discards it after the roll.
-   */
+  /** Axe Throw: winner gets +2 dice on their next chopping roll (via plusMinus). */
   "axe-throw": {
-    isPlayable(ctx: CardContext): boolean {
-      return isValidOpponent(ctx);
-    },
+    isPlayable: (ctx) => isValidOpponent(ctx),
     play(ctx: CardContext): void {
-      const { state, actorSeat, target, rng } = ctx;
-      const result = rollContest(rng);
-      const winnerSeat = result.challengerWins ? actorSeat : target!;
-      // Push the contest card id into winner's plusMinus so the dice modifier applies
-      state.players[winnerSeat]!.plusMinus.push("axe-throw");
-      // The card itself is now placed in the winner's plusMinus zone — handler controls placement.
+      const { winnerSeat } = resolveContest(ctx.state, "axe-throw", ctx.actorSeat, ctx.target!, ctx.rng);
+      ctx.state.players[winnerSeat]!.plusMinus.push("axe-throw");
     },
   },
 
-  /**
-   * Chainsaw Carving: winner takes a Chainsaw axe (base 5 dice).
-   * The winner's existing axe (if any) is discarded to redDiscard first.
-   * "chainsaw" is a synthetic catalog entry (not in the 40-card deck).
-   */
+  /** Chainsaw Carving: winner takes a Chainsaw axe (base 5 dice), discarding any old axe. */
   "chainsaw-carving": {
-    isPlayable(ctx: CardContext): boolean {
-      return isValidOpponent(ctx);
-    },
+    isPlayable: (ctx) => isValidOpponent(ctx),
     play(ctx: CardContext): void {
-      const { state, actorSeat, target, rng } = ctx;
-      const result = rollContest(rng);
-      const winnerSeat = result.challengerWins ? actorSeat : target!;
-      const winnerP = state.players[winnerSeat]!;
-      // Discard old axe first
-      if (winnerP.axe !== null) {
-        state.redDiscard.push(winnerP.axe);
-        winnerP.axe = null;
-      }
+      const { winnerSeat } = resolveContest(ctx.state, "chainsaw-carving", ctx.actorSeat, ctx.target!, ctx.rng);
+      const winnerP = ctx.state.players[winnerSeat]!;
+      if (winnerP.axe !== null) { ctx.state.redDiscard.push(winnerP.axe); winnerP.axe = null; }
       winnerP.axe = "chainsaw";
-      // The chainsaw-carving card itself is consumed by the transformation — handler controls placement.
-      // Per card-data persists: true, but the card transforms into the chainsaw axe;
-      // the original chainsaw-carving card is effectively discarded.
-      state.redDiscard.push("chainsaw-carving");
+      ctx.state.redDiscard.push("chainsaw-carving"); // the card transforms into the axe
     },
   },
 
-  /**
-   * Log Rolling: loser loses their next turn.
-   * The card persists as a reminder in the loser's area (skipNextTurn flag handles the game rule).
-   * The handler controls placement — contest cards are not auto-discarded by resolvePlayedCard.
-   * Per card-data persists: true — the card stays visible until the turn is consumed.
-   * For the engine, the skipNextTurn flag is the authoritative mechanism.
-   * The card is placed in the loser's plusMinus zone as a visual reminder (or just left alone —
-   * since the game rule is purely expressed via skipNextTurn, the card can be consumed with no
-   * physical placement. No redDiscard push here since the handler fully controls placement.
-   */
+  /** Log Rolling: loser loses their next turn (skipNextTurn is the game effect). */
   "log-rolling": {
-    isPlayable(ctx: CardContext): boolean {
-      return isValidOpponent(ctx);
-    },
+    isPlayable: (ctx) => isValidOpponent(ctx),
     play(ctx: CardContext): void {
-      const { state, actorSeat, target, rng } = ctx;
-      const result = rollContest(rng);
-      const loserSeat = result.challengerWins ? target! : actorSeat;
-      skipTurn(state, loserSeat);
-      // Handler controls placement. The skipNextTurn flag is the game effect.
-      // Card is not pushed to redDiscard here — it persists with the loser as a reminder token.
+      const { loserSeat } = resolveContest(ctx.state, "log-rolling", ctx.actorSeat, ctx.target!, ctx.rng);
+      skipTurn(ctx.state, loserSeat);
     },
   },
 
-  /**
-   * Speed Climb: winner gains 2 victory points (speedClimbPoints += 2).
-   * These count toward the 21-point win condition (checkAnyWin in resolvePlayedCard checks this).
-   * The card persists with the winner's scored area (not re-discarded generically).
-   * Per card-data: persists: true, isTree: false, switchTagsImmune: true.
-   * The card is NOT placed in redDiscard — it stays attached to the winner as a scoring token.
-   */
+  /** Speed Climb: winner gains 2 victory points (counts toward the 21-point win). */
   "speed-climb": {
-    isPlayable(ctx: CardContext): boolean {
-      return isValidOpponent(ctx);
-    },
+    isPlayable: (ctx) => isValidOpponent(ctx),
     play(ctx: CardContext): void {
-      const { state, actorSeat, target, rng } = ctx;
-      const result = rollContest(rng);
-      const winnerSeat = result.challengerWins ? actorSeat : target!;
-      state.players[winnerSeat]!.speedClimbPoints += 2;
-      // The card persists with the winner — it becomes part of their score area.
-      // Handler controls placement; resolvePlayedCard won't auto-discard contest cards.
+      const { winnerSeat } = resolveContest(ctx.state, "speed-climb", ctx.actorSeat, ctx.target!, ctx.rng);
+      ctx.state.players[winnerSeat]!.speedClimbPoints += 2;
     },
   },
 };
