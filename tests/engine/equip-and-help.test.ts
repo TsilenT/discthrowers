@@ -25,11 +25,13 @@ describe("Dull Axe can be equipped on an opponent", () => {
     expect(s.turn.phase).toBe("chop");
   });
 
-  it("no-doubles: can't play Dull Axe on someone who already has one", () => {
-    const s = toPlay();
+  it("playing Dull Axe on someone who already has one swaps the copy (allowed)", () => {
+    let s = toPlay();
     s.players[0]!.hand = ["dull-axe"];
     s.players[1]!.axe = "dull-axe";
-    expect(apply(s, { type: "playCard", card: "dull-axe", target: 1 }, mulberry32(4)).ok).toBe(false);
+    s = ok(apply(s, { type: "playCard", card: "dull-axe", target: 1 }, mulberry32(4)));
+    expect(s.players[1]!.axe).toBe("dull-axe");
+    expect(s.redDiscard).toContain("dull-axe");
   });
 
   it("a normal axe still equips on yourself", () => {
