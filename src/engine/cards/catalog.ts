@@ -41,6 +41,9 @@ export function isAxe(id: CardId): boolean { return redCard(id).subtype === "axe
 export function baseChopDice(id: CardId): number {
   return (redCard(id).effect.baseChopDice as number | undefined) ?? 0;
 }
+export function manageHelpDice(id: CardId): number {
+  return (redCard(id).effect.manageHelpDice as number | undefined) ?? 0;
+}
 export function treeStats(id: TreeId): { chopTarget: number; treeScore: number } {
   const t = treeById.get(id);
   if (!t) throw new Error(`Unknown tree: ${id}`);

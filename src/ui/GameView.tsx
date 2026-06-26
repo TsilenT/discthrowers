@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useGame } from "../state/GameProvider";
 import { treeStats, isAxe } from "../engine";
 import { getHandler } from "../engine/cards/registry";
-import { cardCategory, baseChopDice } from "../engine/cards/catalog";
+import { cardCategory, baseChopDice, manageHelpDice } from "../engine/cards/catalog";
 import { cardDiceModifier } from "../engine/dice";
 import { stoppersFor } from "../engine/reactions";
 import { getTheme, DEFAULT_THEME } from "../content";
@@ -337,13 +337,14 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
               <div className="ab-status">
                 <span className="ab-title">⚡ {players[pending.actorSeat]?.name} played {theme.card(pending.card).name}{pending.target !== undefined && ` on ${players[pending.target]?.name}`}</span>
                 {reactionSeat !== null
-                  ? <span className="ab-hint">{hotseat ? `${players[reactionSeat]?.name}: counter it or let it happen?` : "Counter it or let it happen?"}</span>
+                  ? <span className="ab-hint">{theme.card(pending.card).rulesText} {hotseat ? `— ${players[reactionSeat]?.name}, counter it?` : "— counter it?"}</span>
                   : <span className="ab-hint">Waiting on {pending.eligibleReactors.filter((s) => !pending.passed.includes(s)).map((s) => players[s]?.name).join(", ") || "resolution"}…</span>}
               </div>
               {reactionSeat !== null && (
                 <div className="ab-actions">
                   {players[reactionSeat]!.hand.filter((c) => stoppersFor(pending.card).includes(c)).map((cardId, idx) => (
-                    <button key={`${cardId}-${idx}`} className="btn btn-primary" onClick={() => void act({ type: "react", seat: reactionSeat, card: cardId })}>
+                    <button key={`${cardId}-${idx}`} className="btn btn-primary" title={theme.card(cardId).rulesText}
+                      onClick={() => void act({ type: "react", seat: reactionSeat, card: cardId })}>
                       Counter · {theme.card(cardId).name}
                     </button>
                   ))}
@@ -512,7 +513,7 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
                 <dt>Gear</dt><dd>{names(gearOnly)}</dd>
                 <dt>Modifiers</dt><dd>{mods}</dd>
                 <dt>Generic</dt><dd>{names(generic)}</dd>
-                <dt>Helpers</dt><dd>{names(dp.help)}</dd>
+                <dt>Helpers</dt><dd>{dp.help.length ? dp.help.map((id) => `${theme.card(id).name} (${manageHelpDice(id)} dice)`).join(", ") : "none"}</dd>
               </dl>
               <h4 className="detail-h">Points</h4>
               <ul className="score-list">

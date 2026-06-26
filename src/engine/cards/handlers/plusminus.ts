@@ -46,8 +46,13 @@ function opponentPlusMinusHandler(cardId: string): CardHandler {
     isPlayable(ctx: CardContext): boolean {
       if (ctx.target === undefined) return false;
       if (ctx.target === ctx.actorSeat) return false;
+      const targetP = ctx.state.players[ctx.target];
+      if (!targetP) return false;
       if (targetIsImmune(ctx, cardId)) return false;
-      return !!ctx.state.players[ctx.target];
+      // No doubles: can't play a Plus/Minus the target already has in front of them
+      // (e.g. Sore Fingers / Blisters, which persists until Gloves).
+      if (targetP.plusMinus.includes(cardId)) return false;
+      return true;
     },
     play(ctx: CardContext): void {
       addPlusMinus(ctx.state, ctx.target!, cardId);
