@@ -116,6 +116,11 @@ export const actionHandlers: Record<string, CardHandler> = {
       if (idx !== -1) {
         const card = targetP.help.splice(idx, 1)[0]!;
         actor.help.push(card);
+        // Long Saw & Partner sidelines its holder's axe — move that state with the card.
+        if (card === "long-saw-and-partner") {
+          targetP.axeSetAside = false;
+          actor.axeSetAside = true;
+        }
       }
     },
   },
