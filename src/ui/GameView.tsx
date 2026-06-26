@@ -47,6 +47,9 @@ function categoryLabel(id: string): string {
   try { return cardCategory(id).replace("-", "/"); } catch { return "card"; }
 }
 
+/** Compact icons for non-axe gear shown on the player strip. */
+const GEAR_ICON: Record<string, string> = { gloves: "🧤", boots: "👟" };
+
 function noOpAction(state: GameState): Action | null {
   const { turn, players } = state;
   const p = players[turn.activeSeat];
@@ -82,6 +85,13 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
   const activeName = players[turn.activeSeat]?.name ?? `Seat ${turn.activeSeat}`;
   const phase = PHASE_INFO[turn.phase];
   const canTakeTurn = pending === null && winner === null && (hotseat || turn.activeSeat === mySeat);
+
+  // Keep the active player scrolled into view in the horizontal strip.
+  const activeCardRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    try { activeCardRef.current?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" }); }
+    catch { /* scrollIntoView unsupported (e.g. jsdom) — non-critical */ }
+  }, [turn.activeSeat]);
 
   // Auto-advance phases the controlling player would just click through with no effect.
   const autoRef = useRef<string>("");
@@ -136,7 +146,7 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
 
       {error && <div className="toast toast-error" role="alert">{error}<button onClick={() => setError(null)} aria-label="Dismiss">✕</button></div>}
 
-      {/* ---- Course (compact) ------------------------------------------- */}
+      {/* ---- Course: fixed-height horizontal strip of players ----------- */}
       <section className="board">
         <div className="players">
           {seatOrder.map((seat) => {
@@ -148,24 +158,26 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
             const td = tree ? theme.tree(tree.treeId) : null;
             const pct = td ? Math.min(100, Math.round((tree!.chops / td.chopTarget) * 100)) : 0;
             return (
-              <div key={seat} className={`player ${isActive ? "is-active" : ""} ${isMe ? "is-me" : ""}`}>
+              <div key={seat} ref={isActive ? activeCardRef : undefined}
+                className={`player ${isActive ? "is-active" : ""} ${isMe ? "is-me" : ""}`}
+                role="button" tabIndex={0} title="Tap for details"
+                onClick={() => setScoreDetail(seat)}
+                onKeyDown={(e) => { if (e.key === "Enter") setScoreDetail(seat); }}>
                 <div className="player-top">
-                  <span className="player-name">{p.name}{isMe && <span className="tag">you</span>}{isActive && <span className="tag tag-turn">turn</span>}</span>
-                  <button className="player-score" title="See point breakdown" onClick={() => setScoreDetail(seat)}>{playerScore(p)}<small> / 21</small></button>
+                  <span className="player-name">{p.name}{isMe ? " (you)" : ""}</span>
+                  <span className="player-score-num">{playerScore(p)}</span>
                 </div>
-                {td ? (
-                  <div className="basket">
-                    <div className="basket-head"><span>{td.name}</span><span className="muted">{tree!.chops}/{td.chopTarget} · {td.treeScore}pt</span></div>
-                    <div className="bar"><div className="bar-fill" style={{ width: `${pct}%` }} /></div>
-                  </div>
-                ) : <div className="basket muted">no basket set</div>}
-                <div className="chips">
-                  <span className="chip chip-driver">{p.axe ? theme.card(p.axe).name : "no driver"}</span>
-                  {p.scoredTrees.length > 0 && <span className="chip">✓{p.scoredTrees.length}</span>}
-                  {p.skipNextTurn && <span className="chip chip-warn">skips</span>}
-                  {p.equipment.map((id, i) => <span key={`e${i}`} className="chip">{theme.card(id).name}</span>)}
-                  {p.plusMinus.map((id, i) => <span key={`m${i}`} className="chip chip-mod">{theme.card(id).name}</span>)}
-                  {p.help.map((id, i) => <span key={`h${i}`} className="chip chip-help">{theme.card(id).name}</span>)}
+                <div className="bar" title={td ? `${td.name} — ${tree!.chops}/${td.chopTarget}` : "no basket"}>
+                  <div className="bar-fill" style={{ width: `${pct}%` }} />
+                </div>
+                <div className="basket-meta muted">{td ? `${tree!.chops}/${td.chopTarget} throws` : "no basket"}</div>
+                <div className="icons">
+                  <span className={`ic ${p.axe ? "" : "ic-off"}`} title={p.axe ? theme.card(p.axe).name : "no driver"}>🥏</span>
+                  {p.equipment.map((id, i) => <span key={`e${i}`} className="ic" title={theme.card(id).name}>{GEAR_ICON[id] ?? "▫"}</span>)}
+                  {p.plusMinus.length > 0 && <span className="ic" title="dice modifiers">⚡{p.plusMinus.length}</span>}
+                  {p.help.length > 0 && <span className="ic" title="helpers">🤝{p.help.length}</span>}
+                  {p.scoredTrees.length > 0 && <span className="ic" title="baskets sunk">🪣{p.scoredTrees.length}</span>}
+                  {p.skipNextTurn && <span className="ic" title="loses next turn">💤</span>}
                 </div>
               </div>
             );
@@ -323,27 +335,38 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
         </div>
       )}
 
-      {/* ---- Score breakdown popup -------------------------------------- */}
-      {scoreDetail !== null && players[scoreDetail] && (
-        <div className="overlay" role="dialog" onClick={() => setScoreDetail(null)}>
-          <div className="score-card" onClick={(e) => e.stopPropagation()}>
-            <h3>{players[scoreDetail]!.name}’s points</h3>
-            <ul className="score-list">
-              {players[scoreDetail]!.scoredTrees.map((tid, i) => (
-                <li key={`t${i}`}><span>{theme.tree(tid).name}</span><span className="score-pts">+{theme.tree(tid).treeScore}</span></li>
-              ))}
-              {players[scoreDetail]!.speedClimbPoints > 0 && (
-                <li><span>Speed Putt bonus</span><span className="score-pts">+{players[scoreDetail]!.speedClimbPoints}</span></li>
-              )}
-              {players[scoreDetail]!.scoredTrees.length === 0 && players[scoreDetail]!.speedClimbPoints === 0 && (
-                <li className="muted">No points yet.</li>
-              )}
-            </ul>
-            <p className="score-total">Total: <strong>{playerScore(players[scoreDetail]!)}</strong> / 21</p>
-            <button className="btn btn-primary" onClick={() => setScoreDetail(null)}>Close</button>
+      {/* ---- Player detail popup ---------------------------------------- */}
+      {scoreDetail !== null && players[scoreDetail] && (() => {
+        const dp = players[scoreDetail]!;
+        const dtree = dp.standingTree ? theme.tree(dp.standingTree.treeId) : null;
+        const names = (ids: string[]) => ids.length ? ids.map((id) => theme.card(id).name).join(", ") : "none";
+        return (
+          <div className="overlay" role="dialog" onClick={() => setScoreDetail(null)}>
+            <div className="score-card" onClick={(e) => e.stopPropagation()}>
+              <h3>{dp.name}{!hotseat && mySeat === scoreDetail ? " (you)" : ""}</h3>
+              <dl className="detail">
+                <dt>Driver</dt><dd>{dp.axe ? theme.card(dp.axe).name : "none"}</dd>
+                <dt>Basket</dt><dd>{dtree ? `${dtree.name} — ${dp.standingTree!.chops}/${dtree.chopTarget} throws` : "none"}</dd>
+                <dt>Gear</dt><dd>{names(dp.equipment)}</dd>
+                <dt>Modifiers</dt><dd>{names(dp.plusMinus)}</dd>
+                <dt>Helpers</dt><dd>{names(dp.help)}</dd>
+              </dl>
+              <h4 className="detail-h">Points</h4>
+              <ul className="score-list">
+                {dp.scoredTrees.map((tid, i) => (
+                  <li key={`t${i}`}><span>{theme.tree(tid).name}</span><span className="score-pts">+{theme.tree(tid).treeScore}</span></li>
+                ))}
+                {dp.speedClimbPoints > 0 && (
+                  <li><span>Speed Putt bonus</span><span className="score-pts">+{dp.speedClimbPoints}</span></li>
+                )}
+                {dp.scoredTrees.length === 0 && dp.speedClimbPoints === 0 && <li className="muted">No points yet.</li>}
+              </ul>
+              <p className="score-total">Total: <strong>{playerScore(dp)}</strong> / 21</p>
+              <button className="btn btn-primary" onClick={() => setScoreDetail(null)}>Close</button>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ---- Win overlay ------------------------------------------------ */}
       {winner !== null && (
