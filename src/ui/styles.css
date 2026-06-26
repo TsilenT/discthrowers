@@ -258,3 +258,12 @@ button:not(.btn):disabled { opacity: .45; cursor: not-allowed; }
 .score-pts { color: var(--accent); font-weight: 700; }
 .score-total { border-top: 1px solid var(--line); padding-top: .5rem; margin: .5rem 0 1rem; }
 .score-card .btn { width: 100%; }
+
+/* Score Card Swap chooser */
+.swap-label { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: .7rem 0 .35rem; }
+.swap-opts { display: flex; flex-wrap: wrap; gap: .35rem; }
+.swap-opts .btn { width: auto; }
+.swap-opp { margin-bottom: .4rem; }
+.btn.swap-sel { outline: 2px solid var(--accent); background: #295338; }
+.swap-actions { display: flex; gap: .5rem; margin-top: 1rem; }
+.swap-actions .btn { width: auto; flex: 1; }

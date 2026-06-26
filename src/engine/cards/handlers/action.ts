@@ -187,11 +187,12 @@ export const actionHandlers: Record<string, CardHandler> = {
     play(ctx: CardContext): void {
       const actor = ctx.state.players[ctx.actorSeat]!;
       const targetP = ctx.state.players[ctx.target!]!;
-      // Swap the first scored tree of each player
-      const actorFirst = actor.scoredTrees[0]!;
-      const targetFirst = targetP.scoredTrees[0]!;
-      actor.scoredTrees[0] = targetFirst;
-      targetP.scoredTrees[0] = actorFirst;
+      // Swap the chosen scored holes (defaults to the first of each, clamped to valid range).
+      const mine = Math.min(Math.max(ctx.swap?.mine ?? 0, 0), actor.scoredTrees.length - 1);
+      const theirs = Math.min(Math.max(ctx.swap?.theirs ?? 0, 0), targetP.scoredTrees.length - 1);
+      const mineTree = actor.scoredTrees[mine]!;
+      actor.scoredTrees[mine] = targetP.scoredTrees[theirs]!;
+      targetP.scoredTrees[theirs] = mineTree;
     },
   },
 

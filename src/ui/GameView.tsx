@@ -83,6 +83,7 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
   const [dismissedContest, setDismissedContest] = useState<string>("");
   const [dismissedSighting, setDismissedSighting] = useState<string>("");
   const [scoreDetail, setScoreDetail] = useState<Seat | null>(null);
+  const [swapUI, setSwapUI] = useState<{ mine: number; targetSeat: Seat | null; theirs: number } | null>(null);
 
   const act = async (action: Action) => {
     setError(null);
@@ -246,10 +247,15 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
                           {info?.mode === "self" && (
                             <button className="btn btn-primary btn-sm" onClick={() => void act({ type: "playCard", card: cardId })}>Play</button>
                           )}
-                          {(info?.mode === "target" || info?.mode === "axe") && info.legalTargets.length > 0 && !targeting && (
+                          {/* Score Card Swap opens a chooser (which hole to give / take). */}
+                          {cardId === "switch-tags" && info?.mode === "target" && (
+                            <button className="btn btn-primary btn-sm"
+                              onClick={() => setSwapUI({ mine: 0, targetSeat: info.legalTargets[0] ?? null, theirs: 0 })}>Swap ▸</button>
+                          )}
+                          {cardId !== "switch-tags" && (info?.mode === "target" || info?.mode === "axe") && info.legalTargets.length > 0 && !targeting && (
                             <button className="btn btn-sm" onClick={() => setTargetingCard(key)}>Play ▸</button>
                           )}
-                          {(info?.mode === "target" || info?.mode === "axe") && info.legalTargets.length > 0 && targeting && (
+                          {cardId !== "switch-tags" && (info?.mode === "target" || info?.mode === "axe") && info.legalTargets.length > 0 && targeting && (
                             <div className="targets">
                               <span className="muted">on:</span>
                               {info.legalTargets.map((t) => (
@@ -380,6 +386,51 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
           </div>
         </div>
       )}
+
+      {/* ---- Score Card Swap chooser ------------------------------------ */}
+      {swapUI && (() => {
+        const meSeat = turn.activeSeat;
+        const myTrees = players[meSeat]?.scoredTrees ?? [];
+        const opps = seatOrder.filter((s) => s !== meSeat && (players[s]?.scoredTrees.length ?? 0) > 0);
+        return (
+          <div className="overlay" role="dialog" onClick={() => setSwapUI(null)}>
+            <div className="score-card" onClick={(e) => e.stopPropagation()}>
+              <h3>{theme.card("switch-tags").name}</h3>
+              <p className="muted">Give one of your holes, take one of theirs.</p>
+              <div className="swap-label">Your hole to give</div>
+              <div className="swap-opts">
+                {myTrees.map((tid, i) => (
+                  <button key={i} className={`btn btn-sm ${swapUI.mine === i ? "swap-sel" : ""}`}
+                    onClick={() => setSwapUI({ ...swapUI, mine: i })}>
+                    {theme.tree(tid).name} (+{theme.tree(tid).treeScore})
+                  </button>
+                ))}
+              </div>
+              <div className="swap-label">Take from</div>
+              {opps.map((seat) => (
+                <div key={seat} className="swap-opp">
+                  <div className="muted">{name(seat)}</div>
+                  <div className="swap-opts">
+                    {players[seat]!.scoredTrees.map((tid, i) => (
+                      <button key={i} className={`btn btn-sm ${swapUI.targetSeat === seat && swapUI.theirs === i ? "swap-sel" : ""}`}
+                        onClick={() => setSwapUI({ ...swapUI, targetSeat: seat, theirs: i })}>
+                        {theme.tree(tid).name} (+{theme.tree(tid).treeScore})
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              <div className="swap-actions">
+                <button className="btn btn-primary" disabled={swapUI.targetSeat === null}
+                  onClick={() => { void act({ type: "playCard", card: "switch-tags", target: swapUI.targetSeat!, swap: { mine: swapUI.mine, theirs: swapUI.theirs } }); setSwapUI(null); }}>
+                  Swap
+                </button>
+                <button className="btn btn-ghost" onClick={() => setSwapUI(null)}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ---- Player detail popup ---------------------------------------- */}
       {scoreDetail !== null && players[scoreDetail] && (() => {

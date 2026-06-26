@@ -15,6 +15,7 @@ export interface PendingReaction {
   card: CardId;           // the reactable card awaiting resolution
   actorSeat: Seat;        // who played it
   target?: Seat;          // its chosen target, if any
+  swap?: { mine: number; theirs: number }; // Score Card Swap's chosen hole indices
   eligibleReactors: Seat[];
   passed: Seat[];
 }
@@ -99,7 +100,7 @@ export interface GameState {
 export type Action =
   | { type: "squareUp" }
   | { type: "draw" }
-  | { type: "playCard"; card: CardId; target?: Seat }
+  | { type: "playCard"; card: CardId; target?: Seat; swap?: { mine: number; theirs: number } }
   | { type: "discardCard"; card: CardId }
   | { type: "chop" }
   | { type: "longSaw" }

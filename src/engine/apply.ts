@@ -6,7 +6,7 @@ import type { CardContext } from "./cards/ctx";
 import { collectChopDice, consumePlusMinusAfterRoll, plusMinusTotal } from "./dice";
 import type { Rng } from "./rng";
 import { isReactable, eligibleReactors, stoppersFor } from "./reactions";
-import { WIN_SCORE, type Action, type ApplyResult, type CardId, type GameState, type LogEntry, type PlayerState, type Seat } from "./types";
+import { WIN_SCORE, type Action, type ApplyResult, type CardId, type GameState, type LogEntry, type PendingReaction, type PlayerState, type Seat } from "./types";
 
 const clone = (s: GameState): GameState => structuredClone(s);
 const fail = (error: string): ApplyResult => ({ ok: false, error });
@@ -103,10 +103,12 @@ function checkAnyWin(s: GameState): boolean {
  * Mutates s. Does NOT bump version (caller does that).
  * Returns true if the game was won (caller should return early).
  */
-function resolvePlayedCard(s: GameState, card: CardId, actorSeat: Seat, target: Seat | undefined, rng: Rng): boolean {
-  const ctx: CardContext = target !== undefined
-    ? { state: s, actorSeat, target, rng }
-    : { state: s, actorSeat, rng };
+function resolvePlayedCard(s: GameState, card: CardId, actorSeat: Seat, target: Seat | undefined, rng: Rng, swap?: { mine: number; theirs: number }): boolean {
+  const ctx: CardContext = {
+    state: s, actorSeat, rng,
+    ...(target !== undefined ? { target } : {}),
+    ...(swap !== undefined ? { swap } : {}),
+  };
   const handler = getHandler(card);
   handler.play(ctx);
   // Determine post-play card placement:
@@ -168,9 +170,11 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
       // All cards (including axes) route through the handler registry so targeting,
       // "one axe at a time", and "no doubles" are enforced consistently.
       const activeSeat = s.turn.activeSeat;
-      const ctx: CardContext = action.target !== undefined
-        ? { state: s, actorSeat: activeSeat, target: action.target, rng }
-        : { state: s, actorSeat: activeSeat, rng };
+      const ctx: CardContext = {
+        state: s, actorSeat: activeSeat, rng,
+        ...(action.target !== undefined ? { target: action.target } : {}),
+        ...(action.swap !== undefined ? { swap: action.swap } : {}),
+      };
       const handler = getHandler(card);
       if (!handler.isPlayable(ctx)) return fail("That card is not playable in this situation");
       // Remove card from hand
@@ -183,22 +187,21 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
       const reactors = isReactable(card) ? eligibleReactors(s, activeSeat, card) : [];
       if (reactors.length > 0) {
         // Pause for reactions: set pendingReaction, stay in play phase
-        const pending = {
+        const pending: PendingReaction = {
           card,
           actorSeat: activeSeat,
           eligibleReactors: reactors,
-          passed: [] as number[],
+          passed: [],
+          ...(action.target !== undefined ? { target: action.target } : {}),
+          ...(action.swap !== undefined ? { swap: action.swap } : {}),
         };
-        if (action.target !== undefined) {
-          (pending as typeof pending & { target: number }).target = action.target;
-        }
         s.pendingReaction = pending;
         s.version++;
         return { ok: true, state: s };
       }
 
       // No reactors — resolve immediately
-      if (resolvePlayedCard(s, card, activeSeat, action.target, rng)) {
+      if (resolvePlayedCard(s, card, activeSeat, action.target, rng, action.swap)) {
         s.version++;
         return { ok: true, state: s };
       }
@@ -288,8 +291,9 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
         const pendingCard = pr.card;
         const actorSeat = pr.actorSeat;
         const target = pr.target;
+        const swap = pr.swap;
         s.pendingReaction = null;
-        if (resolvePlayedCard(s, pendingCard, actorSeat, target, rng)) {
+        if (resolvePlayedCard(s, pendingCard, actorSeat, target, rng, swap)) {
           s.version++;
           return { ok: true, state: s };
         }

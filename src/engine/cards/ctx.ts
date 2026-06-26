@@ -5,6 +5,7 @@ export interface CardContext {
   state: GameState;
   actorSeat: Seat;        // who played the card
   target?: Seat;          // chosen target seat, if the card needs one
+  swap?: { mine: number; theirs: number }; // Score Card Swap's chosen hole indices
   rng: Rng;
 }
 
