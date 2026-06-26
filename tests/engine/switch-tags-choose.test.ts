@@ -25,6 +25,17 @@ describe("Score Card Swap swaps the chosen holes", () => {
     expect(s.players[1]!.scoredTrees).toEqual(["tree-red-oak", "tree-cottonwood"]);
   });
 
+  it("is not playable (so Discard stays available) when you have no completed hole", () => {
+    const s = toPlay();
+    s.players[0]!.hand = ["switch-tags"];
+    s.players[0]!.scoredTrees = [];                 // no completed holes
+    s.players[1]!.scoredTrees = ["tree-mighty-oak"];
+    // not playable on the opponent...
+    expect(apply(s, { type: "playCard", card: "switch-tags", target: 1 }, mulberry32(4)).ok).toBe(false);
+    // ...and since nothing in hand is playable, discarding it is allowed
+    expect(apply(s, { type: "discardCard", card: "switch-tags" }, mulberry32(4)).ok).toBe(true);
+  });
+
   it("defaults to the first of each when no choice is given", () => {
     let s = toPlay();
     s.players[0]!.hand = ["switch-tags"];
