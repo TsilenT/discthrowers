@@ -23,23 +23,17 @@ function equipAxe(state: GameState, seat: Seat, cardId: CardId): void {
   p.axe = cardId;
 }
 
-/** A normal axe you equip on yourself (no doubles: not playable if you already hold that axe). */
-function selfAxe(cardId: CardId): CardHandler {
+/**
+ * A disc (axe) can be equipped on ANY player — yourself or an opponent. Defaults to
+ * self when no target is given. "No doubles": not playable on someone who already
+ * holds that exact disc. Equipping replaces the recipient's current disc (one at a time).
+ */
+function axeHandler(cardId: CardId): CardHandler {
   return {
-    isPlayable: (ctx) => ctx.state.players[ctx.actorSeat]!.axe !== cardId,
-    play: (ctx) => equipAxe(ctx.state, ctx.actorSeat, cardId),
+    isPlayable: (ctx) => ctx.state.players[ctx.target ?? ctx.actorSeat]?.axe !== cardId,
+    play: (ctx) => equipAxe(ctx.state, ctx.target ?? ctx.actorSeat, cardId),
   };
 }
-
-/**
- * Dull Axe — the one axe you play on someone else (to replace a better axe and slow
- * them down). Targeted at any player; "no doubles" stops it if the recipient already
- * has a Dull Axe. The UI offers opponents; the engine also permits a self target.
- */
-const dullAxe: CardHandler = {
-  isPlayable: (ctx) => ctx.target !== undefined && ctx.state.players[ctx.target]?.axe !== "dull-axe",
-  play: (ctx) => equipAxe(ctx.state, ctx.target!, "dull-axe"),
-};
 
 export const equipmentHandlers: Record<string, CardHandler> = {
   // Non-axe gear (self only)
@@ -62,11 +56,11 @@ export const equipmentHandlers: Record<string, CardHandler> = {
     },
   },
 
-  // Axes — normal axes equip on yourself; Dull Axe can be forced onto an opponent.
-  "carpenters-axe": selfAxe("carpenters-axe"),
-  "chopping-axe": selfAxe("chopping-axe"),
-  "swedish-broad-axe": selfAxe("swedish-broad-axe"),
-  "double-bladed-axe": selfAxe("double-bladed-axe"),
-  "titanium-axe": selfAxe("titanium-axe"),
-  "dull-axe": dullAxe,
+  // Discs — playable on any player (self or opponent).
+  "carpenters-axe": axeHandler("carpenters-axe"),
+  "chopping-axe": axeHandler("chopping-axe"),
+  "swedish-broad-axe": axeHandler("swedish-broad-axe"),
+  "double-bladed-axe": axeHandler("double-bladed-axe"),
+  "titanium-axe": axeHandler("titanium-axe"),
+  "dull-axe": axeHandler("dull-axe"),
 };

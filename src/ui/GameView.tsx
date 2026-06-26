@@ -25,6 +25,11 @@ type PlayabilityResult = { mode: "self" | "target" | "none"; legalTargets: Seat[
 
 function playability(cardId: string, actorSeat: Seat, state: GameState, seatOrder: Seat[]): PlayabilityResult {
   const handler = getHandler(cardId);
+  // Discs can be played on ANY player (self or opponent) — always offer a picker.
+  if (isAxe(cardId)) {
+    const legalTargets = seatOrder.filter((seat) => handler.isPlayable({ state, actorSeat, target: seat, rng: dummyRng } as CardContext));
+    return legalTargets.length > 0 ? { mode: "target", legalTargets } : { mode: "none", legalTargets: [] };
+  }
   if (handler.isPlayable({ state, actorSeat, rng: dummyRng })) return { mode: "self", legalTargets: [] };
   const legalTargets: Seat[] = [];
   for (const seat of seatOrder) {
