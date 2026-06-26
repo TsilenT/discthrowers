@@ -278,3 +278,65 @@ button:not(.btn):disabled { opacity: .45; cursor: not-allowed; }
 .btn.swap-sel { outline: 2px solid var(--accent); background: #295338; }
 .swap-actions { display: flex; gap: .5rem; margin-top: 1rem; }
 .swap-actions .btn { width: auto; flex: 1; }
+
+/* ---------- Juice ---------- */
+/* "I HEARD CHAINS!" basket-sunk burst */
+.chains-burst {
+  position: fixed; inset: 0; z-index: 60; pointer-events: none;
+  display: grid; place-items: center; text-align: center;
+  font-weight: 900; font-size: clamp(2rem, 9vw, 4rem); letter-spacing: .02em;
+  color: var(--gold); text-shadow: 0 2px 0 #00000060, 0 0 22px #fbbf2480;
+  animation: chains-burst 1.6s ease-out forwards;
+}
+@keyframes chains-burst {
+  0% { transform: scale(0.4) rotate(-4deg); opacity: 0; }
+  18% { transform: scale(1.12) rotate(2deg); opacity: 1; }
+  35% { transform: scale(1) rotate(0); opacity: 1; }
+  80% { opacity: 1; }
+  100% { transform: scale(1.05); opacity: 0; }
+}
+
+/* basket sunk: player card flashes green */
+.player.flash-chains { animation: flash-chains 1.4s ease-out; }
+@keyframes flash-chains {
+  0%, 100% { box-shadow: none; }
+  15% { box-shadow: 0 0 0 2px var(--accent), 0 0 22px var(--accent); }
+}
+
+/* driver break: shake + red flash */
+.player.flash-break { animation: flash-break 0.6s ease-in-out; }
+@keyframes flash-break {
+  0% { transform: translateX(0); box-shadow: 0 0 0 2px var(--danger), 0 0 18px var(--danger); }
+  20% { transform: translateX(-5px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+  100% { transform: translateX(0); box-shadow: none; }
+}
+
+/* score pop + floating +N */
+.player-score-num { position: relative; display: inline-block; }
+.player-score-num.score-pop { animation: score-pop 0.5s ease-out; }
+@keyframes score-pop { 0% { transform: scale(1); } 40% { transform: scale(1.5); color: #fff; } 100% { transform: scale(1); } }
+.score-float {
+  position: absolute; right: 0; top: -0.4rem; font-size: .9rem; font-weight: 800; color: var(--accent);
+  pointer-events: none; animation: score-float 1.2s ease-out forwards;
+}
+@keyframes score-float { 0% { transform: translateY(0); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(-1.4rem); opacity: 0; } }
+
+/* reaction window urgency */
+.ab-reaction.urgent { animation: ab-urgent 1s ease-in-out infinite; border-radius: 10px; }
+@keyframes ab-urgent { 0%, 100% { box-shadow: 0 0 0 0 #fbbf2400; } 50% { box-shadow: 0 0 0 2px var(--gold), 0 0 16px #fbbf2455; } }
+
+/* throw / big action button wind-up */
+.btn-lg { transition: transform .08s ease, background .15s ease; }
+.btn-lg:active { transform: scale(0.93); }
+
+/* card play/discard exit motion */
+.card.card-exit { animation: card-out 0.16s ease-in forwards; pointer-events: none; }
+@keyframes card-out { to { transform: translateY(-10px) scale(.9); opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .chains-burst, .player.flash-chains, .player.flash-break, .player-score-num.score-pop,
+  .score-float, .ab-reaction.urgent, .card.card-exit { animation: none; }
+}

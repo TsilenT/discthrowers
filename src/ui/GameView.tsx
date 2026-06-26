@@ -86,12 +86,22 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
   const [dismissedOrder, setDismissedOrder] = useState(false);
   const [scoreDetail, setScoreDetail] = useState<Seat | null>(null);
   const [swapUI, setSwapUI] = useState<{ mine: number; targetSeat: Seat | null; theirs: number } | null>(null);
+  // Juice: transient visual effects
+  const [chains, setChains] = useState<{ seat: Seat; v: number } | null>(null);   // "I HEARD CHAINS!" burst
+  const [breakSeat, setBreakSeat] = useState<{ seat: Seat; v: number } | null>(null); // driver-break shake
+  const [scorePops, setScorePops] = useState<Record<number, { delta: number; v: number }>>({});
+  const [exiting, setExiting] = useState<string | null>(null);                    // card play/discard exit motion
 
   const act = async (action: Action) => {
     setError(null);
     setTargetingCard(null);
     const result = await dispatch(action);
     if (!result.ok) setError(result.error);
+  };
+  // Play/discard with a brief exit animation on the card.
+  const playMotion = (cardKey: string, action: Action) => {
+    setExiting(cardKey);
+    window.setTimeout(() => { setExiting(null); void act(action); }, 160);
   };
 
   const hotseat = mySeat === null;
@@ -149,26 +159,42 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
     }
   };
 
-  // Toast when a card gets disputed (a reaction cancels it) — watch the log for new reacts.
+  // Watch the log + scores for new events → drive transient juice (dispute, chains, break, score pop).
   const seenLogLen = useRef<number | null>(null);
+  const prevScores = useRef<Record<number, number> | null>(null);
   useEffect(() => {
     const log = state.log ?? [];
-    if (seenLogLen.current === null) { seenLogLen.current = log.length; return; } // skip history on mount
+    const curScores: Record<number, number> = {};
+    for (const s of seatOrder) curScores[s] = playerScore(players[s]!);
+    if (seenLogLen.current === null) { // skip history on mount
+      seenLogLen.current = log.length;
+      prevScores.current = curScores;
+      return;
+    }
     if (log.length > seenLogLen.current) {
       const fresh = log.slice(seenLogLen.current);
-      const r = [...fresh].reverse().find((e) => e.k === "react");
-      if (r && r.k === "react") {
-        setNotice(`⚡ ${name(r.seat)} disputed ${theme.card(r.stopped).name} with ${theme.card(r.card).name}`);
-      }
+      const last = <K extends LogEntry["k"]>(k: K) => [...fresh].reverse().find((e) => e.k === k);
+      const r = last("react");
+      if (r && r.k === "react") setNotice(`⚡ ${name(r.seat)} disputed ${theme.card(r.stopped).name} with ${theme.card(r.card).name}`);
+      const t = last("timber");
+      if (t && t.k === "timber") setChains({ seat: t.seat, v: state.version });
+      const b = [...fresh].reverse().find((e) => e.k === "chop" && e.broke);
+      if (b && b.k === "chop") setBreakSeat({ seat: b.seat, v: state.version });
     }
     seenLogLen.current = log.length;
+    // Score pops: any seat whose total went up
+    if (prevScores.current) {
+      const pops: Record<number, { delta: number; v: number }> = {};
+      for (const s of seatOrder) { const d = curScores[s]! - (prevScores.current[s] ?? 0); if (d > 0) pops[s] = { delta: d, v: state.version }; }
+      if (Object.keys(pops).length) setScorePops(pops);
+    }
+    prevScores.current = curScores;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.version]);
-  useEffect(() => {
-    if (notice === null) return;
-    const id = setTimeout(() => setNotice(null), 5000);
-    return () => clearTimeout(id);
-  }, [notice]);
+  useEffect(() => { if (notice === null) return; const id = setTimeout(() => setNotice(null), 5000); return () => clearTimeout(id); }, [notice]);
+  useEffect(() => { if (!chains) return; const id = setTimeout(() => setChains(null), 1600); return () => clearTimeout(id); }, [chains]);
+  useEffect(() => { if (!breakSeat) return; const id = setTimeout(() => setBreakSeat(null), 700); return () => clearTimeout(id); }, [breakSeat]);
+  useEffect(() => { if (!Object.keys(scorePops).length) return; const id = setTimeout(() => setScorePops({}), 1300); return () => clearTimeout(id); }, [scorePops]);
 
   const contest = state.lastContest ?? null;
   const contestKey = contest ? JSON.stringify(contest) : "";
@@ -217,13 +243,16 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
             const generic = p.equipment.filter((id) => !GEAR_ICON[id]); // e.g. Disc Assist
             return (
               <div key={seat} ref={isActive ? activeCardRef : undefined}
-                className={`player ${isActive ? "is-active" : ""} ${isMe ? "is-me" : ""}`}
+                className={`player ${isActive ? "is-active" : ""} ${isMe ? "is-me" : ""} ${chains?.seat === seat ? "flash-chains" : ""} ${breakSeat?.seat === seat ? "flash-break" : ""}`}
                 role="button" tabIndex={0} title="Tap for details"
                 onClick={() => setScoreDetail(seat)}
                 onKeyDown={(e) => { if (e.key === "Enter") setScoreDetail(seat); }}>
                 <div className="player-top">
                   <span className="player-name">{p.name}{isMe ? " (you)" : ""}</span>
-                  <span className="player-score-num">{playerScore(p)}</span>
+                  <span className={`player-score-num ${scorePops[seat] ? "score-pop" : ""}`}>
+                    {playerScore(p)}
+                    {scorePops[seat] && <span key={scorePops[seat]!.v} className="score-float">+{scorePops[seat]!.delta}</span>}
+                  </span>
                 </div>
                 <div className="bar" title={td ? `${td.name} — ${tree!.chops}/${td.chopTarget}` : "no basket"}>
                   <div className="bar-fill" style={{ width: `${pct}%` }} />
@@ -270,7 +299,7 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
                   const info = canPlayNow ? playability(cardId, turn.activeSeat, state, seatOrder) : null;
                   const targeting = targetingCard === key;
                   return (
-                    <li key={key} className={`card cat-${categoryLabel(cardId).split("/")[0]} ${info?.mode === "none" ? "card-dim" : ""}`}>
+                    <li key={key} className={`card cat-${categoryLabel(cardId).split("/")[0]} ${info?.mode === "none" ? "card-dim" : ""} ${exiting === key ? "card-exit" : ""}`}>
                       <div className="card-name">{d.name}</div>
                       <div className="card-cat">{categoryLabel(cardId)}</div>
                       {d.rulesText && <div className="card-text">{d.rulesText}</div>}
@@ -278,10 +307,10 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
                         <div className="card-actions">
                           {/* Discs: Equip (self) leftmost, then Play ▸ to an opponent. */}
                           {info?.mode === "axe" && info.canEquipSelf && (
-                            <button className="btn btn-primary btn-sm" onClick={() => void act({ type: "playCard", card: cardId })}>Equip</button>
+                            <button className="btn btn-primary btn-sm" onClick={() => playMotion(key, { type: "playCard", card: cardId })}>Equip</button>
                           )}
                           {info?.mode === "self" && (
-                            <button className="btn btn-primary btn-sm" onClick={() => void act({ type: "playCard", card: cardId })}>Play</button>
+                            <button className="btn btn-primary btn-sm" onClick={() => playMotion(key, { type: "playCard", card: cardId })}>Play</button>
                           )}
                           {/* Score Card Swap opens a chooser (which hole to give / take). */}
                           {cardId === "switch-tags" && info?.mode === "target" && (
@@ -295,7 +324,7 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
                             <div className="targets">
                               <span className="muted">on:</span>
                               {info.legalTargets.map((t) => (
-                                <button key={t} className="btn btn-sm" onClick={() => void act({ type: "playCard", card: cardId, target: t })}>
+                                <button key={t} className="btn btn-sm" onClick={() => playMotion(key, { type: "playCard", card: cardId, target: t })}>
                                   {players[t]?.name ?? `Seat ${t}`}
                                 </button>
                               ))}
@@ -305,7 +334,7 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
                           {info?.mode === "none" && <span className="muted card-na">can’t play now</span>}
                           <button className={`btn btn-sm ${mustPlay ? "btn-ghost" : "btn-primary"}`} disabled={mustPlay}
                             title={mustPlay ? "You must play a card if you can" : undefined}
-                            onClick={() => void act({ type: "discardCard", card: cardId })}>Discard</button>
+                            onClick={() => playMotion(key, { type: "discardCard", card: cardId })}>Discard</button>
                         </div>
                       )}
                     </li>
@@ -333,7 +362,7 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
       <div className="actionbar">
         <div className="actionbar-inner">
           {pending !== null ? (
-            <div className="ab-reaction">
+            <div className={`ab-reaction ${reactionSeat !== null ? "urgent" : ""}`}>
               <div className="ab-status">
                 <span className="ab-title">⚡ {players[pending.actorSeat]?.name} played {theme.card(pending.card).name}{pending.target !== undefined && ` on ${players[pending.target]?.name}`}</span>
                 {reactionSeat !== null
@@ -531,6 +560,9 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
           </div>
         );
       })()}
+
+      {/* ---- "I HEARD CHAINS!" basket-sunk burst ------------------------ */}
+      {chains && <div key={chains.v} className="chains-burst" aria-hidden="true">I HEARD CHAINS!</div>}
 
       {/* ---- Win overlay ------------------------------------------------ */}
       {winner !== null && (
