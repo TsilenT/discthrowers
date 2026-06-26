@@ -140,7 +140,7 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
       case "contest": return `${theme.card(e.card).name}: ${name(e.winner)} won the roll-off (${e.winnerRoll} vs ${e.loserRoll})`;
       case "longSawPass": return `↪ ${theme.card("long-saw-and-partner").name} passed from ${name(e.from)} to ${name(e.to)}`;
       case "assist": return `🤲 ${name(e.by)}’s ${theme.card("give-me-a-hand").name} on ${name(e.target)}’s throw — ${e.landed ? "landed a throw" : "whiffed"}`;
-      case "sighting": return `👀 ${theme.card("sasquatch-sighting").name} — ${e.failed.length ? `${e.failed.map(name).join(", ")} lose${e.failed.length === 1 ? "s" : ""} a turn` : "everyone dodged it"}`;
+      case "sighting": { const f = e.failed ?? []; return `👀 ${theme.card("sasquatch-sighting").name} — ${f.length ? `${f.map(name).join(", ")} lose${f.length === 1 ? "s" : ""} a turn` : "everyone dodged it"}`; }
       case "win": return `🏆 ${name(e.seat)} wins!`;
     }
   };

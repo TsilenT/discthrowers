@@ -48,5 +48,15 @@ export function normalizeState(raw: GameState | null): GameState | null {
     p.cannotChopThisTurn = p.cannotChopThisTurn ?? false;
   }
 
+  // Arrays nested inside objects are also dropped when empty — rehydrate them.
+  if (s.pendingReaction) {
+    s.pendingReaction.eligibleReactors = s.pendingReaction.eligibleReactors ?? [];
+    s.pendingReaction.passed = s.pendingReaction.passed ?? [];
+  }
+  if (s.lastSighting) s.lastSighting.rolls = s.lastSighting.rolls ?? [];
+  for (const e of s.log) {
+    if (e.k === "sighting") e.failed = e.failed ?? []; // empty "nobody failed" gets dropped by RTDB
+  }
+
   return s;
 }
