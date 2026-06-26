@@ -64,25 +64,34 @@ export const actionHandlers: Record<string, CardHandler> = {
     },
   },
 
-  /** Steal Equipment: take first equipment card from target. No-doubles: discard existing copy. */
+  /**
+   * Steal Equipment: take an Equipment card from the target. An Axe IS an Equipment
+   * card, so this can steal the axe too (preferred when present, since Steal Axe is a
+   * separate card and the axe is the impactful grab). Otherwise take the first gear.
+   * No doubles / one-axe-at-a-time: discard the actor's existing copy/axe as needed.
+   */
   "steal-equipment": {
     isPlayable(ctx: CardContext): boolean {
       if (ctx.target === undefined) return false;
       const targetP = ctx.state.players[ctx.target];
-      return !!targetP && targetP.equipment.length > 0;
+      return !!targetP && (targetP.axe !== null || targetP.equipment.length > 0);
     },
     play(ctx: CardContext): void {
       const s = ctx.state;
       const actor = s.players[ctx.actorSeat]!;
       const targetP = s.players[ctx.target!]!;
-      // Take the first equipment card from target
-      const stolen = targetP.equipment.shift()!;
-      // No-doubles: if actor already has this, discard the existing copy
-      const existingIdx = actor.equipment.indexOf(stolen);
-      if (existingIdx !== -1) {
-        actor.equipment.splice(existingIdx, 1);
-        s.redDiscard.push(stolen);
+      if (targetP.axe !== null) {
+        // Steal the axe — one axe at a time: discard the actor's current axe first.
+        const stolen = targetP.axe;
+        targetP.axe = null;
+        if (actor.axe !== null) s.redDiscard.push(actor.axe);
+        actor.axe = stolen;
+        return;
       }
+      // Otherwise take the first non-axe gear.
+      const stolen = targetP.equipment.shift()!;
+      const existingIdx = actor.equipment.indexOf(stolen);
+      if (existingIdx !== -1) { actor.equipment.splice(existingIdx, 1); s.redDiscard.push(stolen); } // no doubles
       actor.equipment.push(stolen);
     },
   },

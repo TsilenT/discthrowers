@@ -102,6 +102,9 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
   const handSeat: Seat | null = hotseat ? (pending !== null ? reactionSeat : turn.activeSeat) : mySeat;
   const handPlayer = handSeat !== null ? players[handSeat] : undefined;
   const canPlayNow = canTakeTurn && turn.phase === "play";
+  // Mandatory-play rule: if any card in hand is playable, discarding is illegal → gray it out.
+  const mustPlay = canPlayNow && !!handPlayer &&
+    handPlayer.hand.some((c) => playability(c, turn.activeSeat, state, seatOrder).mode !== "none");
 
   const name = (seat: Seat) => players[seat]?.name ?? `Seat ${seat}`;
   const logText = (e: LogEntry): string => {
@@ -219,7 +222,9 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
                             </div>
                           )}
                           {info?.mode === "none" && <span className="muted card-na">can’t play now</span>}
-                          <button className="btn btn-ghost btn-sm" onClick={() => void act({ type: "discardCard", card: cardId })}>Discard</button>
+                          <button className="btn btn-ghost btn-sm" disabled={mustPlay}
+                            title={mustPlay ? "You must play a card if you can" : undefined}
+                            onClick={() => void act({ type: "discardCard", card: cardId })}>Discard</button>
                         </div>
                       )}
                     </li>
