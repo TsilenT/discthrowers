@@ -132,7 +132,7 @@ describe("give-me-a-hand: chop hijack", () => {
     // give-me-a-hand card discarded from by-player's equipment
     expect(s.players[0]!.equipment).not.toContain("give-me-a-hand");
     expect(s.redDiscard).toContain("give-me-a-hand");
-    expect(s.turn.phase).toBe("manageHelp");
+    expect(s.turn.phase).toBe("longSaw");
   });
 
   it("first die < 4 → no hijack chop (seed 9 → first die=2)", () => {

@@ -7,7 +7,7 @@ export type CardCategory =
   | "sasquatch" | "action" | "reaction" | "contest";
 
 export type Phase =
-  | "squareUp" | "draw" | "play" | "chop" | "manageHelp" | "end" | "gameOver";
+  | "squareUp" | "draw" | "play" | "chop" | "longSaw" | "manageHelp" | "end" | "gameOver";
 
 export interface StandingTree { treeId: TreeId; chops: number; }
 
@@ -92,6 +92,7 @@ export type Action =
   | { type: "playCard"; card: CardId; target?: Seat }
   | { type: "discardCard"; card: CardId }
   | { type: "chop" }
+  | { type: "longSaw" }
   | { type: "manageHelp" }
   | { type: "endTurn" }
   | { type: "react"; seat: Seat; card: CardId }

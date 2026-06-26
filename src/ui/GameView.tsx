@@ -39,6 +39,7 @@ const PHASE_INFO: Record<Phase, { title: string; hint: string; action?: string }
   draw:       { title: "Draw a card",   hint: "Draw a card into your hand.", action: "Draw a card" },
   play:       { title: "Play a card",   hint: "Play a card from your hand — you must, if you can — or discard one." },
   chop:       { title: "Throw!",        hint: "Roll the dice. Each 4, 5 or 6 lands a throw on your basket.", action: "🎯 Throw!" },
+  longSaw:    { title: "Tandem throw",  hint: "Roll with your partner (your driver is sidelined).", action: "🪚 Tandem throw" },
   manageHelp: { title: "Helpers throw", hint: "Roll the dice for your helper cards.", action: "Roll helpers" },
   end:        { title: "End turn",      hint: "Pass play to the next disc golfer.", action: "End turn" },
   gameOver:   { title: "Game over",     hint: "" },
@@ -58,7 +59,8 @@ function noOpAction(state: GameState): Action | null {
   switch (turn.phase) {
     case "squareUp":   return p.standingTree !== null ? { type: "squareUp" } : null;
     case "chop":       return (p.axe === null || p.standingTree === null || p.cannotChopThisTurn || p.axeSetAside) ? { type: "chop" } : null;
-    case "manageHelp": return p.help.length === 0 ? { type: "manageHelp" } : null;
+    case "longSaw":    return p.help.includes("long-saw-and-partner") ? null : { type: "longSaw" };
+    case "manageHelp": return p.help.every((c) => c === "long-saw-and-partner") ? { type: "manageHelp" } : null;
     default:           return null;
   }
 }

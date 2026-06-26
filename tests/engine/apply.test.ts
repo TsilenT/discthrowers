@@ -75,16 +75,18 @@ describe("apply: chop & turn end", () => {
     s = ok(apply(s, { type: "playCard", card: handAxe }, mulberry32(4)));
     return s;
   }
-  it("chop rolls dice and may add chops, then -> manageHelp", () => {
+  it("chop rolls dice and may add chops, then -> longSaw", () => {
     let s = atChop();
     s = ok(apply(s, { type: "chop" }, mulberry32(10)));
-    expect(s.turn.phase).toBe("manageHelp");
+    expect(s.turn.phase).toBe("longSaw");
     expect(s.lastRoll.length).toBe(3);
     expect(s.players[0]!.standingTree!.chops).toBeGreaterThanOrEqual(0);
   });
-  it("manageHelp -> end, endTurn advances to next seat at squareUp", () => {
+  it("chop -> longSaw -> manageHelp -> end, endTurn advances to next seat at squareUp", () => {
     let s = atChop();
     s = ok(apply(s, { type: "chop" }, mulberry32(10)));
+    s = ok(apply(s, { type: "longSaw" }, mulberry32(13)));
+    expect(s.turn.phase).toBe("manageHelp");
     s = ok(apply(s, { type: "manageHelp" }, mulberry32(11)));
     expect(s.turn.phase).toBe("end");
     s = ok(apply(s, { type: "endTurn" }, mulberry32(12)));
@@ -97,6 +99,7 @@ describe("apply: chop & turn end", () => {
     // seat 1's skipNextTurn should be cleared.
     let s = atChop();
     s = ok(apply(s, { type: "chop" }, mulberry32(10)));
+    s = ok(apply(s, { type: "longSaw" }, mulberry32(13)));
     s = ok(apply(s, { type: "manageHelp" }, mulberry32(11)));
     // seat 0 is active and in "end" phase; flag seat 1 to be skipped
     s.players[1]!.skipNextTurn = true;

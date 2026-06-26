@@ -205,18 +205,18 @@ describe("long-saw-and-partner", () => {
     expect(s.turn.phase).toBe("chop");
   });
 
-  it("chop phase: axeSetAside=true skips roll and goes straight to manageHelp", () => {
+  it("chop phase: axeSetAside=true skips roll and goes to the longSaw phase", () => {
     // Player has axe + standingTree but axeSetAside=true → no chop roll
     const s = ok(apply(game({
       0: player({ axe: "carpenters-axe", standingTree: { treeId: "tree-norway-pine", chops: 0 }, axeSetAside: true }),
       1: player(),
     }, { turn: { activeSeat: 0, phase: "chop" } }), { type: "chop" }, mulberry32(1)));
-    // Must go to manageHelp, no changes to the tree
-    expect(s.turn.phase).toBe("manageHelp");
+    // Must go to longSaw, no changes to the tree
+    expect(s.turn.phase).toBe("longSaw");
     expect(s.players[0]!.standingTree!.chops).toBe(0);
   });
 
-  it("manageHelp: long-saw rolls 5 dice; each 4/5/6 chops (seed 11 → all chops, no pass-right)", () => {
+  it("longSaw: long-saw rolls 5 dice; each 4/5/6 chops (seed 11 → all chops, no pass-right)", () => {
     // seed 11: dice=[4,4,4,4,6] → 5 chops, 0 breaks → no pass right
     // Norway Pine chopTarget=4; start at chops=0, 5 chops → fells and scores
     const s = ok(apply(game({
@@ -226,7 +226,7 @@ describe("long-saw-and-partner", () => {
         standingTree: { treeId: "tree-norway-pine", chops: 0 },
       }),
       1: player(),
-    }, { turn: { activeSeat: 0, phase: "manageHelp" } }), { type: "manageHelp" }, mulberry32(11)));
+    }, { turn: { activeSeat: 0, phase: "longSaw" } }), { type: "longSaw" }, mulberry32(11)));
     // Tree felled (5 chops >= 4 chopTarget)
     expect(s.players[0]!.standingTree).toBeNull();
     expect(s.players[0]!.scoredTrees).toContain("tree-norway-pine");
@@ -234,10 +234,10 @@ describe("long-saw-and-partner", () => {
     expect(s.players[0]!.help).toContain("long-saw-and-partner");
     // axeSetAside stays true (card still held)
     expect(s.players[0]!.axeSetAside).toBe(true);
-    expect(s.turn.phase).toBe("end");
+    expect(s.turn.phase).toBe("manageHelp");
   });
 
-  it("manageHelp: long-saw passes right on 4+ breaks/misses in 5 dice (seed 4 → [6,2,2,1,2])", () => {
+  it("longSaw: long-saw passes right on 4+ breaks/misses in 5 dice (seed 4 → [6,2,2,1,2])", () => {
     // seed 4: dice=[6,2,2,1,2] → 1 chop (6), 4 breaks (2,2,1,2) → pass right
     // seatOrder=[0,1]; player 0 has long-saw; right = player 1
     const initState: GameState = {
@@ -249,10 +249,10 @@ describe("long-saw-and-partner", () => {
       seatOrder: [0, 1],
       redDeck: [], redDiscard: [], treeDeck: [], treeDiscard: [],
       chopStockpile: 25,
-      turn: { activeSeat: 0, phase: "manageHelp" },
+      turn: { activeSeat: 0, phase: "longSaw" },
       lastRoll: [], winner: null, pendingReaction: null,
     };
-    const s = ok(apply(initState, { type: "manageHelp" }, mulberry32(4)));
+    const s = ok(apply(initState, { type: "longSaw" }, mulberry32(4)));
     // 1 chop applied first (the die=6)
     expect(s.players[0]!.standingTree!.chops).toBe(1);
     // Card passed right to seat 1
@@ -260,7 +260,7 @@ describe("long-saw-and-partner", () => {
     expect(s.players[0]!.axeSetAside).toBe(false);
     expect(s.players[1]!.help).toContain("long-saw-and-partner");
     expect(s.players[1]!.axeSetAside).toBe(true);
-    expect(s.turn.phase).toBe("end");
+    expect(s.turn.phase).toBe("manageHelp");
   });
 
   it("manageHelp: long-saw passing right wraps around (last seat → first seat)", () => {
@@ -275,11 +275,11 @@ describe("long-saw-and-partner", () => {
       seatOrder: [0, 1, 2],
       redDeck: [], redDiscard: [], treeDeck: [], treeDiscard: [],
       chopStockpile: 25,
-      turn: { activeSeat: 2, phase: "manageHelp" },
+      turn: { activeSeat: 2, phase: "longSaw" },
       lastRoll: [], winner: null, pendingReaction: null,
     };
     // seed 4: [6,2,2,1,2] → 4 breaks/misses → pass right; wraps to seat 0
-    const s = ok(apply(initState, { type: "manageHelp" }, mulberry32(4)));
+    const s = ok(apply(initState, { type: "longSaw" }, mulberry32(4)));
     expect(s.players[2]!.help).not.toContain("long-saw-and-partner");
     expect(s.players[2]!.axeSetAside).toBe(false);
     expect(s.players[0]!.help).toContain("long-saw-and-partner");

@@ -306,11 +306,11 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
       // OR no axe/no standing tree.
       if (p.cannotChopThisTurn || p.axeSetAside) {
         p.cannotChopThisTurn = false;
-        s.turn.phase = "manageHelp";
+        s.turn.phase = "longSaw";
         s.version++;
         return { ok: true, state: s };
       }
-      if (p.axe === null || p.standingTree === null) { s.turn.phase = "manageHelp"; s.version++; return { ok: true, state: s }; }
+      if (p.axe === null || p.standingTree === null) { s.turn.phase = "longSaw"; s.version++; return { ok: true, state: s }; }
       const n = collectChopDice(p);
       const dice = rollDice(n, rng);
       s.lastRoll = dice;
@@ -376,6 +376,40 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
       const broke = axeBreaks && p.axe !== null;
       if (broke) { s.redDiscard.push(p.axe!); p.axe = null; }
       pushLog(s, { k: "chop", seat: s.turn.activeSeat, chops: gained, broke });
+      s.turn.phase = "longSaw";
+      s.version++;
+      return { ok: true, state: s };
+    }
+    case "longSaw": {
+      if (s.turn.phase !== "longSaw") return fail("Not the long-saw phase");
+      const seat = s.turn.activeSeat;
+      const hp = s.players[seat]!;
+      // Long Saw & Partner is your chopping substitute: it rolls here (its own phase,
+      // right after the chop), separate from the helper rolls (Apprentice/Babe).
+      if (hp.help.includes("long-saw-and-partner")) {
+        const base = (redCard("long-saw-and-partner").effect["manageHelpDice"] as number | undefined) ?? 5;
+        // "Counts like a chopping roll for Plus/Minus cards" — scales then consumes them.
+        const numDice = Math.max(0, base + plusMinusTotal(hp));
+        const dice = rollDice(numDice, rng);
+        s.lastRoll = dice;
+        let chops = 0;
+        for (const d of dice) { if (d >= 4) chops++; }
+        const gained = hp.standingTree ? Math.min(chops, s.chopStockpile) : 0;
+        if (gained > 0 && hp.standingTree) { hp.standingTree.chops += gained; s.chopStockpile -= gained; }
+        consumePlusMinusAfterRoll(s, seat);
+        pushLog(s, { k: "chop", seat, chops: gained, broke: false });
+        if (checkFellAndWin(s, seat)) { s.version++; return { ok: true, state: s }; }
+        // Pass right if 4+ of ITS OWN dice are breaks/misses.
+        if (dice.filter((d) => d <= 3).length >= 4) {
+          const idx = hp.help.indexOf("long-saw-and-partner");
+          if (idx !== -1) hp.help.splice(idx, 1);
+          hp.axeSetAside = false;
+          const nextSeat = s.seatOrder[(s.seatOrder.indexOf(seat) + 1) % s.seatOrder.length]!;
+          s.players[nextSeat]!.help.push("long-saw-and-partner");
+          s.players[nextSeat]!.axeSetAside = true;
+          pushLog(s, { k: "longSawPass", from: seat, to: nextSeat });
+        }
+      }
       s.turn.phase = "manageHelp";
       s.version++;
       return { ok: true, state: s };
@@ -384,18 +418,13 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
       if (s.turn.phase !== "manageHelp") return fail("Not the manage-help phase");
       const seat = s.turn.activeSeat;
       const hp = s.players[seat]!;
-      // Snapshot the help array since long-saw-and-partner may modify it mid-loop
-      const helpSnapshot = [...hp.help];
       const helpDice: number[] = []; // surfaced via lastRoll so the UI shows helper rolls
       let helpChops = 0;
-      for (const helpCard of helpSnapshot) {
-        const effect = redCard(helpCard).effect;
-        const base = (effect["manageHelpDice"] as number | undefined) ?? 0;
-        if (base <= 0) continue;
-        // Long Saw & Partner's roll "counts like a chopping roll for Plus/Minus cards":
-        // its dice scale with the holder's modifiers, which are then consumed.
-        const isLongSaw = helpCard === "long-saw-and-partner";
-        const numDice = isLongSaw ? Math.max(0, base + plusMinusTotal(hp)) : base;
+      for (const helpCard of hp.help) {
+        // Long Saw & Partner rolls in its own (longSaw) phase, not here.
+        if (helpCard === "long-saw-and-partner") continue;
+        const numDice = (redCard(helpCard).effect["manageHelpDice"] as number | undefined) ?? 0;
+        if (numDice <= 0) continue;
         const dice = rollDice(numDice, rng);
         helpDice.push(...dice);
         s.lastRoll = [...helpDice];
@@ -406,29 +435,7 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
           hp.standingTree.chops += gained;
           s.chopStockpile -= gained;
           helpChops += gained;
-          // Check fell/score/win after each help card
           if (checkFellAndWin(s, seat)) { s.version++; return { ok: true, state: s }; }
-        }
-        if (isLongSaw) consumePlusMinusAfterRoll(s, seat); // consumed like a chopping roll
-        // ── Long Saw & Partner: pass-right logic ──────────────────────────────
-        // If 4+ of the rolled dice are breaks (1-2) or misses (3), move the card
-        // to the next player in seatOrder (the player on the right). Clear the
-        // current holder's axeSetAside and set the new holder's axeSetAside.
-        if (helpCard === "long-saw-and-partner") {
-          const breaksAndMisses = dice.filter((d) => d <= 3).length;
-          if (breaksAndMisses >= 4) {
-            // Remove from current holder's help
-            const idx = hp.help.indexOf("long-saw-and-partner");
-            if (idx !== -1) hp.help.splice(idx, 1);
-            hp.axeSetAside = false;
-            // Find the next seat in seatOrder (wrap around)
-            const seatIdx = s.seatOrder.indexOf(seat);
-            const nextSeat = s.seatOrder[(seatIdx + 1) % s.seatOrder.length]!;
-            const nextPlayer = s.players[nextSeat]!;
-            nextPlayer.help.push("long-saw-and-partner");
-            nextPlayer.axeSetAside = true;
-            pushLog(s, { k: "longSawPass", from: seat, to: nextSeat });
-          }
         }
       }
       if (helpDice.length > 0) pushLog(s, { k: "help", seat, chops: helpChops });

@@ -346,8 +346,8 @@ describe("cannotChopThisTurn: chop phase skips roll", () => {
     expect(r.state.players[0]!.standingTree!.chops).toBe(0);
     // cannotChopThisTurn is cleared
     expect(r.state.players[0]!.cannotChopThisTurn).toBe(false);
-    // Advances to manageHelp
-    expect(r.state.turn.phase).toBe("manageHelp");
+    // Chop is skipped → advances to the longSaw phase
+    expect(r.state.turn.phase).toBe("longSaw");
   });
 
   it("cannotChopThisTurn is cleared at endTurn", () => {
