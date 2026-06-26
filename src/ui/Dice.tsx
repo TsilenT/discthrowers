@@ -26,6 +26,32 @@ export function PipDie({ value, outcome }: { value: number; outcome?: "hit" | "m
   );
 }
 
+/**
+ * A pip die that tumbles + flashes random faces on mount, then settles on `value`
+ * (tinted by outcome). Used in the reveal popups (contests, sighting, roll-off) so
+ * those dice actually roll instead of just appearing.
+ */
+export function RollingDie({ value, outcome = null }: { value: number; outcome?: "hit" | "miss" | "low" | null }) {
+  const [face, setFace] = useState(value);
+  const [rolling, setRolling] = useState(!prefersReducedMotion());
+  useEffect(() => {
+    if (prefersReducedMotion()) return;
+    const flashId = setInterval(() => setFace(1 + Math.floor(Math.random() * 6)), 80);
+    const stopId = setTimeout(() => { clearInterval(flashId); setFace(value); setRolling(false); }, 700);
+    return () => { clearInterval(flashId); clearTimeout(stopId); };
+  }, [value]);
+  const shown = rolling ? face : value;
+  const pips = PIPS[shown] ?? [];
+  const cls = ["die", rolling ? "die--rolling-loop" : (outcome ? `die--${outcome}` : "")].filter(Boolean).join(" ");
+  return (
+    <span className={cls} aria-hidden="true">
+      {Array.from({ length: 9 }, (_, cell) => (
+        <span key={cell} className={pips.includes(cell) ? "pip pip--on" : "pip"} />
+      ))}
+    </span>
+  );
+}
+
 function Die({ value, rolling, outcome, index }: {
   value: number; rolling: boolean; outcome: "hit" | "miss" | "low" | null; index: number;
 }) {

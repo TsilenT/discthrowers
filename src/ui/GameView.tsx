@@ -6,7 +6,7 @@ import { cardCategory, baseChopDice } from "../engine/cards/catalog";
 import { cardDiceModifier } from "../engine/dice";
 import { stoppersFor } from "../engine/reactions";
 import { getTheme, DEFAULT_THEME } from "../content";
-import { Dice, PipDie } from "./Dice";
+import { Dice, RollingDie } from "./Dice";
 import type { ThemeContent } from "../content";
 import type { CardContext } from "../engine/cards/ctx";
 import type { GameState, PlayerState, Action, Seat, Phase, LogEntry } from "../engine/types";
@@ -190,7 +190,15 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
       </header>
 
       {error && <div className="toast toast-error" role="alert">{error}<button onClick={() => setError(null)} aria-label="Dismiss">✕</button></div>}
-      {notice && <div className="toast toast-notice" role="status">{notice}<button onClick={() => setNotice(null)} aria-label="Dismiss">✕</button></div>}
+      {notice && (
+        <div className="overlay" role="alert" onClick={() => setNotice(null)}>
+          <div className="notice-card" onClick={(e) => e.stopPropagation()}>
+            <div className="notice-emoji">⚡</div>
+            <p>{notice}</p>
+            <button className="btn btn-primary" onClick={() => setNotice(null)}>OK</button>
+          </div>
+        </div>
+      )}
 
       {/* ---- Course: fixed-height horizontal strip of players ----------- */}
       <section className="board">
@@ -381,12 +389,12 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
             <div className="contest-rolls">
               <div className={`contest-side ${contest.winner === contest.challenger ? "won" : ""}`}>
                 <div className="contest-name">{name(contest.challenger)}</div>
-                <PipDie value={contest.challengerRoll} outcome={contest.winner === contest.challenger ? "hit" : "low"} />
+                <RollingDie value={contest.challengerRoll} outcome={contest.winner === contest.challenger ? "hit" : "low"} />
               </div>
               <div className="contest-vs">vs</div>
               <div className={`contest-side ${contest.winner === contest.opponent ? "won" : ""}`}>
                 <div className="contest-name">{name(contest.opponent)}</div>
-                <PipDie value={contest.opponentRoll} outcome={contest.winner === contest.opponent ? "hit" : "low"} />
+                <RollingDie value={contest.opponentRoll} outcome={contest.winner === contest.opponent ? "hit" : "low"} />
               </div>
             </div>
             <p className="contest-result">🏆 {name(contest.winner)} wins the roll-off</p>
@@ -405,7 +413,7 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
               {sighting.rolls.map((r) => (
                 <div key={r.seat} className={`contest-side ${r.failed ? "" : "won"}`}>
                   <div className="contest-name">{name(r.seat)}</div>
-                  <PipDie value={r.roll} outcome={r.failed ? "low" : "hit"} />
+                  <RollingDie value={r.roll} outcome={r.failed ? "low" : "hit"} />
                   <div className="muted">{r.failed ? "loses turn" : "safe"}</div>
                 </div>
               ))}
@@ -426,7 +434,7 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
                 {round.map((r) => (
                   <div key={r.seat} className="contest-side">
                     <div className="contest-name">{name(r.seat)}</div>
-                    <PipDie value={r.roll} />
+                    <RollingDie value={r.roll} />
                   </div>
                 ))}
               </div>
