@@ -178,8 +178,10 @@ h1, h2, h3 { margin: 0 0 0.5rem; font-weight: 700; }
 .bar { height: 7px; background: #0e1f16; border-radius: 999px; overflow: hidden; border: 1px solid var(--line); margin: .4rem 0 .25rem; }
 .bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--sky)); transition: width .3s ease; }
 .basket-meta { font-size: .72rem; }
+.driver { margin-top: .3rem; font-size: .76rem; color: var(--sky); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.driver-off { color: var(--muted); opacity: .7; }
 
-.icons { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .35rem; font-size: .82rem; }
+.icons { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .3rem; font-size: .82rem; }
 .ic { line-height: 1; }
 .ic-off { opacity: .28; filter: grayscale(1); }
 

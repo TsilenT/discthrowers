@@ -3,7 +3,7 @@ import { cardCategory, redCard, treeStats } from "./cards/catalog";
 import { getHandler } from "./cards/registry";
 import { reactionHandlers } from "./cards/handlers/reaction";
 import type { CardContext } from "./cards/ctx";
-import { collectChopDice, consumePlusMinusAfterRoll } from "./dice";
+import { collectChopDice, consumePlusMinusAfterRoll, plusMinusTotal } from "./dice";
 import type { Rng } from "./rng";
 import { isReactable, eligibleReactors, stoppersFor } from "./reactions";
 import { WIN_SCORE, type Action, type ApplyResult, type CardId, type GameState, type LogEntry, type PlayerState, type Seat } from "./types";
@@ -390,8 +390,12 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
       let helpChops = 0;
       for (const helpCard of helpSnapshot) {
         const effect = redCard(helpCard).effect;
-        const numDice = (effect["manageHelpDice"] as number | undefined) ?? 0;
-        if (numDice <= 0) continue;
+        const base = (effect["manageHelpDice"] as number | undefined) ?? 0;
+        if (base <= 0) continue;
+        // Long Saw & Partner's roll "counts like a chopping roll for Plus/Minus cards":
+        // its dice scale with the holder's modifiers, which are then consumed.
+        const isLongSaw = helpCard === "long-saw-and-partner";
+        const numDice = isLongSaw ? Math.max(0, base + plusMinusTotal(hp)) : base;
         const dice = rollDice(numDice, rng);
         helpDice.push(...dice);
         s.lastRoll = [...helpDice];
@@ -405,6 +409,7 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
           // Check fell/score/win after each help card
           if (checkFellAndWin(s, seat)) { s.version++; return { ok: true, state: s }; }
         }
+        if (isLongSaw) consumePlusMinusAfterRoll(s, seat); // consumed like a chopping roll
         // ── Long Saw & Partner: pass-right logic ──────────────────────────────
         // If 4+ of the rolled dice are breaks (1-2) or misses (3), move the card
         // to the next player in seatOrder (the player on the right). Clear the

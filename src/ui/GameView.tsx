@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { useGame } from "../state/GameProvider";
 import { treeStats, isAxe } from "../engine";
 import { getHandler } from "../engine/cards/registry";
-import { cardCategory } from "../engine/cards/catalog";
+import { cardCategory, baseChopDice } from "../engine/cards/catalog";
+import { cardDiceModifier } from "../engine/dice";
 import { stoppersFor } from "../engine/reactions";
 import { getTheme, DEFAULT_THEME } from "../content";
 import { Dice, PipDie } from "./Dice";
@@ -171,12 +172,13 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
                   <div className="bar-fill" style={{ width: `${pct}%` }} />
                 </div>
                 <div className="basket-meta muted">{td ? `${tree!.chops}/${td.chopTarget} throws` : "no basket"}</div>
+                <div className={`driver ${p.axe ? "" : "driver-off"}`} title="driver">
+                  🥏 {p.axe ? theme.card(p.axe).name : "no driver"}
+                </div>
                 <div className="icons">
-                  <span className={`ic ${p.axe ? "" : "ic-off"}`} title={p.axe ? theme.card(p.axe).name : "no driver"}>🥏</span>
                   {p.equipment.map((id, i) => <span key={`e${i}`} className="ic" title={theme.card(id).name}>{GEAR_ICON[id] ?? "▫"}</span>)}
                   {p.plusMinus.length > 0 && <span className="ic" title="dice modifiers">⚡{p.plusMinus.length}</span>}
                   {p.help.length > 0 && <span className="ic" title="helpers">🤝{p.help.length}</span>}
-                  {p.scoredTrees.length > 0 && <span className="ic" title="baskets sunk">🪣{p.scoredTrees.length}</span>}
                   {p.skipNextTurn && <span className="ic" title="loses next turn">💤</span>}
                 </div>
               </div>
@@ -340,15 +342,20 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
         const dp = players[scoreDetail]!;
         const dtree = dp.standingTree ? theme.tree(dp.standingTree.treeId) : null;
         const names = (ids: string[]) => ids.length ? ids.map((id) => theme.card(id).name).join(", ") : "none";
+        const fmtMod = (m: number) => `${m >= 0 ? "+" : ""}${m}`;
+        const mods = dp.plusMinus.length
+          ? dp.plusMinus.map((id) => `${theme.card(id).name} (${fmtMod(cardDiceModifier(id))})`).join(", ")
+          : "none";
+        const driver = dp.axe ? `${theme.card(dp.axe).name} (${baseChopDice(dp.axe)} dice)` : "none";
         return (
           <div className="overlay" role="dialog" onClick={() => setScoreDetail(null)}>
             <div className="score-card" onClick={(e) => e.stopPropagation()}>
               <h3>{dp.name}{!hotseat && mySeat === scoreDetail ? " (you)" : ""}</h3>
               <dl className="detail">
-                <dt>Driver</dt><dd>{dp.axe ? theme.card(dp.axe).name : "none"}</dd>
+                <dt>Driver</dt><dd>{driver}</dd>
                 <dt>Basket</dt><dd>{dtree ? `${dtree.name} — ${dp.standingTree!.chops}/${dtree.chopTarget} throws` : "none"}</dd>
                 <dt>Gear</dt><dd>{names(dp.equipment)}</dd>
-                <dt>Modifiers</dt><dd>{names(dp.plusMinus)}</dd>
+                <dt>Modifiers</dt><dd>{mods}</dd>
                 <dt>Helpers</dt><dd>{names(dp.help)}</dd>
               </dl>
               <h4 className="detail-h">Points</h4>
