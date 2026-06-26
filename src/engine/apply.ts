@@ -427,6 +427,7 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
             const nextPlayer = s.players[nextSeat]!;
             nextPlayer.help.push("long-saw-and-partner");
             nextPlayer.axeSetAside = true;
+            pushLog(s, { k: "longSawPass", from: seat, to: nextSeat });
           }
         }
       }

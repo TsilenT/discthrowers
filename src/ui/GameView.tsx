@@ -129,6 +129,7 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
       case "timber": return `🪣 ${name(e.seat)} sank ${theme.tree(e.tree).name}`;
       case "react": return `${name(e.seat)} countered ${theme.card(e.stopped).name} with ${theme.card(e.card).name}`;
       case "contest": return `${theme.card(e.card).name}: ${name(e.winner)} won the roll-off (${e.winnerRoll} vs ${e.loserRoll})`;
+      case "longSawPass": return `↪ ${theme.card("long-saw-and-partner").name} passed from ${name(e.from)} to ${name(e.to)}`;
       case "win": return `🏆 ${name(e.seat)} wins!`;
     }
   };

@@ -53,6 +53,7 @@ export type LogEntry =
   | { k: "timber"; seat: Seat; tree: TreeId }
   | { k: "react"; seat: Seat; card: CardId; stopped: CardId }
   | { k: "contest"; card: CardId; winner: Seat; winnerRoll: number; loserRoll: number }
+  | { k: "longSawPass"; from: Seat; to: Seat }
   | { k: "win"; seat: Seat };
 
 /** The most recent contest dice-off, surfaced for a reveal popup. */
