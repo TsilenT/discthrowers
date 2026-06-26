@@ -78,6 +78,7 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
   const theme: ThemeContent = themeProp ?? getTheme(DEFAULT_THEME);
 
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [targetingCard, setTargetingCard] = useState<string | null>(null);
   const [tab, setTab] = useState<"hand" | "log">("hand");
   const [dismissedContest, setDismissedContest] = useState<string>("");
@@ -148,6 +149,27 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
     }
   };
 
+  // Toast when a card gets disputed (a reaction cancels it) — watch the log for new reacts.
+  const seenLogLen = useRef<number | null>(null);
+  useEffect(() => {
+    const log = state.log ?? [];
+    if (seenLogLen.current === null) { seenLogLen.current = log.length; return; } // skip history on mount
+    if (log.length > seenLogLen.current) {
+      const fresh = log.slice(seenLogLen.current);
+      const r = [...fresh].reverse().find((e) => e.k === "react");
+      if (r && r.k === "react") {
+        setNotice(`⚡ ${name(r.seat)} disputed ${theme.card(r.stopped).name} with ${theme.card(r.card).name}`);
+      }
+    }
+    seenLogLen.current = log.length;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.version]);
+  useEffect(() => {
+    if (notice === null) return;
+    const id = setTimeout(() => setNotice(null), 5000);
+    return () => clearTimeout(id);
+  }, [notice]);
+
   const contest = state.lastContest ?? null;
   const contestKey = contest ? JSON.stringify(contest) : "";
   const showContest = contest !== null && contestKey !== dismissedContest;
@@ -168,6 +190,7 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
       </header>
 
       {error && <div className="toast toast-error" role="alert">{error}<button onClick={() => setError(null)} aria-label="Dismiss">✕</button></div>}
+      {notice && <div className="toast toast-notice" role="status">{notice}<button onClick={() => setNotice(null)} aria-label="Dismiss">✕</button></div>}
 
       {/* ---- Course: fixed-height horizontal strip of players ----------- */}
       <section className="board">
@@ -272,7 +295,7 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
                             </div>
                           )}
                           {info?.mode === "none" && <span className="muted card-na">can’t play now</span>}
-                          <button className="btn btn-ghost btn-sm" disabled={mustPlay}
+                          <button className={`btn btn-sm ${mustPlay ? "btn-ghost" : "btn-primary"}`} disabled={mustPlay}
                             title={mustPlay ? "You must play a card if you can" : undefined}
                             onClick={() => void act({ type: "discardCard", card: cardId })}>Discard</button>
                         </div>
