@@ -32,14 +32,19 @@ function Die({ value, rolling, outcome, index }: {
  * then settles on the rolled values, tinted by outcome (4-6 hit, 3 miss, 1-2 low).
  */
 export function Dice({ roll }: { roll: number[] }) {
-  const seen = useRef(JSON.stringify(roll));
+  // Key on the dice CONTENTS, not the array reference. The engine clones state on
+  // every action, so a no-op state change after a roll (e.g. auto-skipping the empty
+  // helpers step) produces a new lastRoll array with identical values — keying on the
+  // reference would tear down the settle timer mid-tumble and leave the dice stuck
+  // "rolling" (uncoloured). The content key only changes on an actual new roll.
+  const rollKey = JSON.stringify(roll);
+  const seen = useRef(rollKey);
   const [rolling, setRolling] = useState(false);
   const [flash, setFlash] = useState<number[] | null>(null);
 
   useEffect(() => {
-    const key = JSON.stringify(roll);
-    if (roll.length === 0 || key === seen.current) return;
-    seen.current = key;
+    if (roll.length === 0 || rollKey === seen.current) return;
+    seen.current = rollKey;
     if (prefersReducedMotion()) return;
     setRolling(true);
     const n = roll.length;
@@ -53,7 +58,8 @@ export function Dice({ roll }: { roll: number[] }) {
       setRolling(false);
     }, 700);
     return () => { clearInterval(flashId); clearTimeout(stopId); };
-  }, [roll]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rollKey]);
 
   if (roll.length === 0) return null;
   const faces = rolling && flash ? flash : roll;

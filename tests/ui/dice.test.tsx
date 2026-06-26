@@ -26,4 +26,21 @@ describe("Dice highlighting", () => {
       vi.useRealTimers();
     }
   });
+
+  // Regression: a no-op state change after a roll (e.g. auto-skipping the empty helpers
+  // step) re-renders with a NEW array of identical values. The dice must still settle,
+  // not get stuck rolling/cream.
+  it("still settles when re-rendered mid-tumble with an identical-content roll", () => {
+    vi.useFakeTimers();
+    try {
+      const { container, rerender } = render(<Dice roll={[]} />);
+      act(() => { rerender(<Dice roll={[6, 1, 4]} />); });   // roll lands → tumble starts
+      act(() => { vi.advanceTimersByTime(200); });            // mid-tumble
+      act(() => { rerender(<Dice roll={[6, 1, 4]} />); });   // new array, SAME values (clone)
+      act(() => { vi.advanceTimersByTime(800); });            // let the original timer finish
+      expect(container.querySelectorAll(".die--hit, .die--miss, .die--low").length).toBe(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
