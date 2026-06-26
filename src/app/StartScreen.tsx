@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { createInitialGame, cryptoRng, apply, mulberry32 } from "../engine";
+import { createInitialGame, cryptoRng } from "../engine";
 import { THEMES } from "../content";
+import { GameStore } from "../state/gameStore";
+import { LocalStoragePersistence } from "../state/persistence";
 import type { Store } from "../state/store";
 
 const DEFAULT_NAMES = [
@@ -23,18 +25,8 @@ export function StartScreen({ onStart, onCreateOnline, themeId, onThemeChange }:
       name: names[i]!.trim() || DEFAULT_NAMES[i]!,
     }));
     const rng = cryptoRng();
-    let _state = createInitialGame(seats, rng);
-    const listeners = new Set<() => void>();
-    const store: Store = {
-      getState: () => _state,
-      subscribe: (cb) => { listeners.add(cb); return () => listeners.delete(cb); },
-      dispatch: (action) => {
-        const seed = Math.floor(Math.random() * 0xffffffff);
-        const result = apply(_state, action, mulberry32(seed));
-        if (result.ok) { _state = result.state; listeners.forEach((l) => l()); }
-        return result.ok ? { ok: true } : { ok: false, error: result.error };
-      },
-    };
+    // GameStore persists to localStorage so a refresh resumes the hotseat game.
+    const store = new GameStore(createInitialGame(seats, rng), new LocalStoragePersistence(), rng);
     onStart(store);
   };
 

@@ -2,11 +2,12 @@ import type { CardHandler } from "../registry";
 import type { CardContext } from "../ctx";
 import { addHelp } from "../primitives";
 
-/** Create a self-target help card handler. */
+/** Create a self-target help card handler. No doubles: you can't play a help card
+ *  you already have in front of you (a second copy isn't allowed by the rules). */
 function selfHelpHandler(cardId: string): CardHandler {
   return {
-    isPlayable(_ctx: CardContext): boolean {
-      return true;
+    isPlayable(ctx: CardContext): boolean {
+      return !ctx.state.players[ctx.actorSeat]!.help.includes(cardId);
     },
     play(ctx: CardContext): void {
       addHelp(ctx.state, ctx.actorSeat, cardId);
@@ -32,8 +33,8 @@ export const helpHandlers: Record<string, CardHandler> = {
    * M3: base 5 dice only (Plus/Minus scaling deferred to M4).
    */
   "long-saw-and-partner": {
-    isPlayable(_ctx: CardContext): boolean {
-      return true;
+    isPlayable(ctx: CardContext): boolean {
+      return !ctx.state.players[ctx.actorSeat]!.help.includes("long-saw-and-partner");
     },
     play(ctx: CardContext): void {
       addHelp(ctx.state, ctx.actorSeat, "long-saw-and-partner");

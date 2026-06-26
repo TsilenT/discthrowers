@@ -11,15 +11,31 @@ import { isFirebaseConfigured } from "../net/firebase";
 import { makeRtdbBackend, seatForUid } from "../net/game";
 import { createLobby, getMeta, makeLobbyBackend } from "../net/lobby";
 import { useTheme } from "../content/useTheme";
+import { cryptoRng } from "../engine";
+import { GameStore } from "../state/gameStore";
+import { LocalStoragePersistence } from "../state/persistence";
+
+const persistence = new LocalStoragePersistence();
 
 export function App() {
   const [route, setRoute] = useState<Route>(() => parseRoute(location.hash));
   const [store, setStore] = useState<Store | null>(null);
+  const [resumable, setResumable] = useState<GameStore | null>(null);
+  const [checked, setChecked] = useState(false);
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [lobbyFor, setLobbyFor] = useState<string | null>(null);
 
   const { theme, themeId, setThemeId } = useTheme();
+
+  // Resume a saved hotseat game on load (and re-check whenever we return to the menu).
+  useEffect(() => {
+    void persistence.load().then((saved) => {
+      if (saved && saved.winner === null) setResumable(new GameStore(saved, persistence, cryptoRng()));
+      else { if (saved) void persistence.clear(); setResumable(null); }
+      setChecked(true);
+    });
+  }, []);
 
   useEffect(() => {
     const onHash = () => {
@@ -29,6 +45,10 @@ export function App() {
         setStore(null);
         setJoinError(null);
         setLobbyFor(null);
+        void persistence.load().then((saved) => {
+          if (saved && saved.winner === null) setResumable(new GameStore(saved, persistence, cryptoRng()));
+          else { if (saved) void persistence.clear(); setResumable(null); }
+        });
       }
     };
     window.addEventListener("hashchange", onHash);
@@ -108,6 +128,19 @@ export function App() {
   }
   if (route.kind === "game") {
     return <main data-testid="app-root" />; // resolving meta (effect above)
+  }
+  if (!checked) return <main data-testid="app-root" />; // brief: still checking for a saved game
+  if (resumable) {
+    return (
+      <main data-testid="app-root">
+        <div className="start-screen">
+          <h1>Disc Throwers</h1>
+          <p className="muted">You have a hotseat game in progress.</p>
+          <button className="btn btn-primary btn-lg" onClick={() => setStore(resumable)}>Resume game</button>
+          <button className="btn btn-ghost" onClick={() => { void persistence.clear(); setResumable(null); }}>Start a new game instead</button>
+        </div>
+      </main>
+    );
   }
   return (
     <main data-testid="app-root">
