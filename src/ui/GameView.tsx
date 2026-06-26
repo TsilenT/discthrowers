@@ -82,6 +82,7 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
   const [tab, setTab] = useState<"hand" | "log">("hand");
   const [dismissedContest, setDismissedContest] = useState<string>("");
   const [dismissedSighting, setDismissedSighting] = useState<string>("");
+  const [dismissedOrder, setDismissedOrder] = useState(false);
   const [scoreDetail, setScoreDetail] = useState<Seat | null>(null);
   const [swapUI, setSwapUI] = useState<{ mine: number; targetSeat: Seat | null; theirs: number } | null>(null);
 
@@ -142,6 +143,7 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
       case "longSawPass": return `↪ ${theme.card("long-saw-and-partner").name} passed from ${name(e.from)} to ${name(e.to)}`;
       case "assist": return `🤲 ${name(e.by)}’s ${theme.card("give-me-a-hand").name} on ${name(e.target)}’s throw — ${e.landed ? "landed a throw" : "whiffed"}`;
       case "sighting": { const f = e.failed ?? []; return `👀 ${theme.card("sasquatch-sighting").name} — ${f.length ? `${f.map(name).join(", ")} lose${f.length === 1 ? "s" : ""} a turn` : "everyone dodged it"}`; }
+      case "order": return `🎲 Turn order: ${(e.order ?? []).map(name).join(" → ")}`;
       case "win": return `🏆 ${name(e.seat)} wins!`;
     }
   };
@@ -153,6 +155,9 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
   const sighting = state.lastSighting ?? null;
   const sightingKey = sighting ? JSON.stringify(sighting) : "";
   const showSighting = sighting !== null && !showContest && sightingKey !== dismissedSighting;
+
+  const orderReveal = state.orderReveal ?? null;
+  const showOrder = orderReveal !== null && !dismissedOrder && !showContest && !showSighting;
 
   return (
     <div className="game">
@@ -383,6 +388,28 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
               ))}
             </div>
             <button className="btn btn-primary btn-lg" onClick={() => setDismissedSighting(sightingKey)}>Continue</button>
+          </div>
+        </div>
+      )}
+
+      {/* ---- Opening turn-order roll-off popup -------------------------- */}
+      {showOrder && orderReveal && (
+        <div className="overlay" role="alert">
+          <div className="contest-card">
+            <h3>First Logger roll-off</h3>
+            <p className="muted">Highest roll goes first (ties reroll)</p>
+            {orderReveal.rounds.map((round, ri) => (
+              <div key={ri} className="contest-rolls">
+                {round.map((r) => (
+                  <div key={r.seat} className="contest-side">
+                    <div className="contest-name">{name(r.seat)}</div>
+                    <PipDie value={r.roll} />
+                  </div>
+                ))}
+              </div>
+            ))}
+            <p className="contest-result">▶ {orderReveal.order.map(name).join(" → ")}</p>
+            <button className="btn btn-primary btn-lg" onClick={() => setDismissedOrder(true)}>Let’s throw!</button>
           </div>
         </div>
       )}

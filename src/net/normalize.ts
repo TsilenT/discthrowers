@@ -15,6 +15,7 @@ export function normalizeState(raw: GameState | null): GameState | null {
   s.pendingReaction = s.pendingReaction ?? null;
   s.lastContest = s.lastContest ?? null;
   s.lastSighting = s.lastSighting ?? null;
+  s.orderReveal = s.orderReveal ?? null;
   s.log = s.log ?? [];
 
   // Top-level arrays — RTDB drops these when empty

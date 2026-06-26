@@ -155,7 +155,7 @@ export function makeLobbyBackend(id: string): LobbyBackend {
       // Map non-contiguous lobby slots to contiguous engine indices 0..n-1 (in
       // ascending slot order), so seats/{i} and players[i] share the same index.
       const seats: SeatInfo[] = assignSeats(slots);
-      const state = createInitialGame(seats, cryptoRng());
+      const state = createInitialGame(seats, cryptoRng(), { rollOff: true });
       const tokens = seats.map(() => randomId(16));
 
       // One atomic multi-path update: roster freeze, rescue tokens, state, status flip.

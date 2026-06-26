@@ -57,7 +57,14 @@ export type LogEntry =
   | { k: "longSawPass"; from: Seat; to: Seat }
   | { k: "assist"; by: Seat; target: Seat; landed: boolean }
   | { k: "sighting"; actor: Seat; failed: Seat[] }
+  | { k: "order"; order: Seat[] }
   | { k: "win"; seat: Seat };
+
+/** The opening turn-order roll-off, surfaced for a reveal popup at game start. */
+export interface OrderReveal {
+  order: Seat[];
+  rounds: { seat: Seat; roll: number }[][];
+}
 
 /** The most recent Hooligan Sighting roll-off, surfaced for a reveal popup. */
 export interface SightingReveal {
@@ -95,6 +102,8 @@ export interface GameState {
   lastContest?: ContestReveal | null;
   /** The most recent Hooligan Sighting roll-off, for the reveal popup (optional). */
   lastSighting?: SightingReveal | null;
+  /** The opening turn-order roll-off, for the reveal popup at game start (optional). */
+  orderReveal?: OrderReveal | null;
 }
 
 export type Action =

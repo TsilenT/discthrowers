@@ -26,7 +26,7 @@ export function StartScreen({ onStart, onCreateOnline, themeId, onThemeChange }:
     }));
     const rng = cryptoRng();
     // GameStore persists to localStorage so a refresh resumes the hotseat game.
-    const store = new GameStore(createInitialGame(seats, rng), new LocalStoragePersistence(), rng);
+    const store = new GameStore(createInitialGame(seats, rng, { rollOff: true }), new LocalStoragePersistence(), rng);
     onStart(store);
   };
 
