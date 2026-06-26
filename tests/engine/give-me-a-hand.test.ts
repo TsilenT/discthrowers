@@ -177,6 +177,8 @@ describe("give-me-a-hand: chop hijack", () => {
     expect(s.players[1]!.giveMeAHand).toEqual([]);
     expect(s.players[0]!.equipment).not.toContain("give-me-a-hand");
     expect(s.redDiscard).toContain("give-me-a-hand");
+    // A resolution is logged even when it whiffs (first die < 4)
+    expect((s.log ?? []).some((e) => e.k === "assist" && e.by === 0 && e.target === 1 && e.landed === false)).toBe(true);
   });
 
   it("hijacked die STILL counts toward target's break tally (seed 4: [6,2,2] → 2 breaks, no break)", () => {

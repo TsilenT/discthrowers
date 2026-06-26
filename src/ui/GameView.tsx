@@ -126,12 +126,13 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
       case "turn": return `▶ ${name(e.seat)}’s turn`;
       case "play": return `${name(e.seat)} played ${theme.card(e.card).name}${e.target !== undefined ? ` on ${name(e.target)}` : ""}`;
       case "discard": return `${name(e.seat)} discarded ${theme.card(e.card).name}`;
-      case "chop": return `${name(e.seat)} threw — ${e.chops} landed${e.broke ? ", driver broke!" : ""}`;
-      case "help": return `${name(e.seat)}’s helpers threw — ${e.chops} landed`;
+      case "chop": return `${name(e.seat)} threw — ${e.chops} landed (${e.dice} dice)${e.broke ? ", driver broke!" : ""}`;
+      case "help": return `${name(e.seat)}’s helpers threw — ${e.chops} landed (${e.dice} dice)`;
       case "timber": return `🪣 ${name(e.seat)} sank ${theme.tree(e.tree).name}`;
       case "react": return `${name(e.seat)} countered ${theme.card(e.stopped).name} with ${theme.card(e.card).name}`;
       case "contest": return `${theme.card(e.card).name}: ${name(e.winner)} won the roll-off (${e.winnerRoll} vs ${e.loserRoll})`;
       case "longSawPass": return `↪ ${theme.card("long-saw-and-partner").name} passed from ${name(e.from)} to ${name(e.to)}`;
+      case "assist": return `🤲 ${name(e.by)}’s ${theme.card("give-me-a-hand").name} on ${name(e.target)}’s throw — ${e.landed ? "landed a throw" : "whiffed"}`;
       case "win": return `🏆 ${name(e.seat)} wins!`;
     }
   };

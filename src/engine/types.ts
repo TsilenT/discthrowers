@@ -48,12 +48,13 @@ export type LogEntry =
   | { k: "turn"; seat: Seat }
   | { k: "play"; seat: Seat; card: CardId; target?: Seat }
   | { k: "discard"; seat: Seat; card: CardId }
-  | { k: "chop"; seat: Seat; chops: number; broke: boolean }
-  | { k: "help"; seat: Seat; chops: number }
+  | { k: "chop"; seat: Seat; chops: number; broke: boolean; dice: number }
+  | { k: "help"; seat: Seat; chops: number; dice: number }
   | { k: "timber"; seat: Seat; tree: TreeId }
   | { k: "react"; seat: Seat; card: CardId; stopped: CardId }
   | { k: "contest"; card: CardId; winner: Seat; winnerRoll: number; loserRoll: number }
   | { k: "longSawPass"; from: Seat; to: Seat }
+  | { k: "assist"; by: Seat; target: Seat; landed: boolean }
   | { k: "win"; seat: Seat };
 
 /** The most recent contest dice-off, surfaced for a reveal popup. */

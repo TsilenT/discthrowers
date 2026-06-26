@@ -330,6 +330,8 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
         const entry = p.giveMeAHand[0]!;
         const hijackedDie = dice[0]!;
         hijackedDieIdx = 0;
+        // Log the Disc Assist resolution whether it lands or whiffs.
+        pushLog(s, { k: "assist", by: entry.bySeat, target: s.turn.activeSeat, landed: hijackedDie >= 4 });
         if (hijackedDie >= 4) {
           // Score 1 chop for the by-player's standing tree
           const byPlayer = s.players[entry.bySeat];
@@ -375,7 +377,7 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
       if (checkFellAndWin(s, s.turn.activeSeat)) { s.version++; return { ok: true, state: s }; }
       const broke = axeBreaks && p.axe !== null;
       if (broke) { s.redDiscard.push(p.axe!); p.axe = null; }
-      pushLog(s, { k: "chop", seat: s.turn.activeSeat, chops: gained, broke });
+      pushLog(s, { k: "chop", seat: s.turn.activeSeat, chops: gained, broke, dice: dice.length });
       s.turn.phase = "longSaw";
       s.version++;
       return { ok: true, state: s };
@@ -397,7 +399,7 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
         const gained = hp.standingTree ? Math.min(chops, s.chopStockpile) : 0;
         if (gained > 0 && hp.standingTree) { hp.standingTree.chops += gained; s.chopStockpile -= gained; }
         consumePlusMinusAfterRoll(s, seat);
-        pushLog(s, { k: "chop", seat, chops: gained, broke: false });
+        pushLog(s, { k: "chop", seat, chops: gained, broke: false, dice: dice.length });
         if (checkFellAndWin(s, seat)) { s.version++; return { ok: true, state: s }; }
         // Pass right if 4+ of ITS OWN dice are breaks/misses.
         if (dice.filter((d) => d <= 3).length >= 4) {
@@ -438,7 +440,7 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
           if (checkFellAndWin(s, seat)) { s.version++; return { ok: true, state: s }; }
         }
       }
-      if (helpDice.length > 0) pushLog(s, { k: "help", seat, chops: helpChops });
+      if (helpDice.length > 0) pushLog(s, { k: "help", seat, chops: helpChops, dice: helpDice.length });
       s.turn.phase = "end";
       s.version++;
       return { ok: true, state: s };
