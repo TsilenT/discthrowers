@@ -161,6 +161,10 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
             const tree = p.standingTree;
             const td = tree ? theme.tree(tree.treeId) : null;
             const pct = td ? Math.min(100, Math.round((tree!.chops / td.chopTarget) * 100)) : 0;
+            const ups = p.plusMinus.filter((id) => cardDiceModifier(id) > 0).length;
+            const downs = p.plusMinus.filter((id) => cardDiceModifier(id) < 0).length;
+            const gear = p.equipment.filter((id) => GEAR_ICON[id]);
+            const generic = p.equipment.filter((id) => !GEAR_ICON[id]); // e.g. Disc Assist
             return (
               <div key={seat} ref={isActive ? activeCardRef : undefined}
                 className={`player ${isActive ? "is-active" : ""} ${isMe ? "is-me" : ""}`}
@@ -179,8 +183,10 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
                   🥏 {p.axe ? theme.card(p.axe).name : "no driver"}
                 </div>
                 <div className="icons">
-                  {p.equipment.map((id, i) => <span key={`e${i}`} className="ic" title={theme.card(id).name}>{GEAR_ICON[id] ?? "▫"}</span>)}
-                  {p.plusMinus.length > 0 && <span className="ic" title="dice modifiers">⚡{p.plusMinus.length}</span>}
+                  {gear.map((id, i) => <span key={`g${i}`} className="ic" title={theme.card(id).name}>{GEAR_ICON[id]}</span>)}
+                  {ups > 0 && <span className="ic" title="power-ups">⚡{ups}</span>}
+                  {downs > 0 && <span className="ic" title="power-downs">🔻{downs}</span>}
+                  {generic.length > 0 && <span className="ic" title={generic.map((id) => theme.card(id).name).join(", ")}>🤲{generic.length}</span>}
                   {p.help.length > 0 && <span className="ic" title="helpers">🤝{p.help.length}</span>}
                   {p.skipNextTurn && <span className="ic" title="loses next turn">💤</span>}
                 </div>
@@ -350,6 +356,8 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
           ? dp.plusMinus.map((id) => `${theme.card(id).name} (${fmtMod(cardDiceModifier(id))})`).join(", ")
           : "none";
         const driver = dp.axe ? `${theme.card(dp.axe).name} (${baseChopDice(dp.axe)} dice)` : "none";
+        const gearOnly = dp.equipment.filter((id) => GEAR_ICON[id]);
+        const generic = dp.equipment.filter((id) => !GEAR_ICON[id]);
         return (
           <div className="overlay" role="dialog" onClick={() => setScoreDetail(null)}>
             <div className="score-card" onClick={(e) => e.stopPropagation()}>
@@ -357,8 +365,9 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
               <dl className="detail">
                 <dt>Driver</dt><dd>{driver}</dd>
                 <dt>Basket</dt><dd>{dtree ? `${dtree.name} — ${dp.standingTree!.chops}/${dtree.chopTarget} throws` : "none"}</dd>
-                <dt>Gear</dt><dd>{names(dp.equipment)}</dd>
+                <dt>Gear</dt><dd>{names(gearOnly)}</dd>
                 <dt>Modifiers</dt><dd>{mods}</dd>
+                <dt>Generic</dt><dd>{names(generic)}</dd>
                 <dt>Helpers</dt><dd>{names(dp.help)}</dd>
               </dl>
               <h4 className="detail-h">Points</h4>
