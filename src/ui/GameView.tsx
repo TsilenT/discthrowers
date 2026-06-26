@@ -185,7 +185,7 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
                 <div className="bar" title={td ? `${td.name} — ${tree!.chops}/${td.chopTarget}` : "no basket"}>
                   <div className="bar-fill" style={{ width: `${pct}%` }} />
                 </div>
-                <div className="basket-meta muted">{td ? `${tree!.chops}/${td.chopTarget} throws` : "no basket"}</div>
+                <div className="basket-meta muted">{td ? `${tree!.chops}/${td.chopTarget} throws · ${td.treeScore} pts` : "no basket"}</div>
                 <div className={`driver ${p.axe ? "" : "driver-off"}`} title="driver">
                   🥏 {p.axe ? theme.card(p.axe).name : "no driver"}
                 </div>
