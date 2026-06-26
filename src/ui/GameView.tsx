@@ -85,6 +85,7 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
   const [dismissedSighting, setDismissedSighting] = useState<string>("");
   const [dismissedOrder, setDismissedOrder] = useState(false);
   const [scoreDetail, setScoreDetail] = useState<Seat | null>(null);
+  const [inspectCard, setInspectCard] = useState<string | null>(null); // full-card inspector inside the detail popup
   const [swapUI, setSwapUI] = useState<{ mine: number; targetSeat: Seat | null; theirs: number } | null>(null);
   // Juice: transient visual effects
   const [chains, setChains] = useState<{ seat: Seat; v: number } | null>(null);   // "I HEARD CHAINS!" burst
@@ -245,8 +246,8 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
               <div key={seat} ref={isActive ? activeCardRef : undefined}
                 className={`player ${isActive ? "is-active" : ""} ${isMe ? "is-me" : ""} ${chains?.seat === seat ? "flash-chains" : ""} ${breakSeat?.seat === seat ? "flash-break" : ""}`}
                 role="button" tabIndex={0} title="Tap for details"
-                onClick={() => setScoreDetail(seat)}
-                onKeyDown={(e) => { if (e.key === "Enter") setScoreDetail(seat); }}>
+                onClick={() => { setInspectCard(null); setScoreDetail(seat); }}
+                onKeyDown={(e) => { if (e.key === "Enter") { setInspectCard(null); setScoreDetail(seat); } }}>
                 <div className="player-top">
                   <span className="player-name">{p.name}{isMe ? " (you)" : ""}</span>
                   <span className={`player-score-num ${scorePops[seat] ? "score-pop" : ""}`}>
@@ -520,31 +521,53 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
         );
       })()}
 
-      {/* ---- Player detail popup ---------------------------------------- */}
+      {/* ---- Player detail popup (tappable card pills + inline inspector) -- */}
       {scoreDetail !== null && players[scoreDetail] && (() => {
         const dp = players[scoreDetail]!;
         const dtree = dp.standingTree ? theme.tree(dp.standingTree.treeId) : null;
-        const names = (ids: string[]) => ids.length ? ids.map((id) => theme.card(id).name).join(", ") : "none";
-        const fmtMod = (m: number) => `${m >= 0 ? "+" : ""}${m}`;
-        const mods = dp.plusMinus.length
-          ? dp.plusMinus.map((id) => `${theme.card(id).name} (${fmtMod(cardDiceModifier(id))})`).join(", ")
-          : "none";
-        const driver = dp.axe ? `${theme.card(dp.axe).name} (${baseChopDice(dp.axe)} dice)` : "none";
-        const gearOnly = dp.equipment.filter((id) => GEAR_ICON[id]);
-        const generic = dp.equipment.filter((id) => !GEAR_ICON[id]);
+        const closeDetail = () => { setScoreDetail(null); setInspectCard(null); };
+        // All cards in front of this player, in a sensible order.
+        const tableau = [...(dp.axe ? [dp.axe] : []), ...dp.equipment, ...dp.plusMinus, ...dp.help];
+        const cardStat = (id: string): string => {
+          const m = cardDiceModifier(id), bc = baseChopDice(id), mh = manageHelpDice(id);
+          if (bc) return `${bc} dice`;
+          if (mh) return `${mh} dice`;
+          if (m) return `${m > 0 ? "+" : ""}${m} dice`;
+          return "";
+        };
+        const inspected = inspectCard;
         return (
-          <div className="overlay" role="dialog" onClick={() => setScoreDetail(null)}>
+          <div className="overlay" role="dialog" onClick={closeDetail}>
             <div className="score-card" onClick={(e) => e.stopPropagation()}>
               <h3>{dp.name}{!hotseat && mySeat === scoreDetail ? " (you)" : ""}</h3>
-              <dl className="detail">
-                <dt>Driver</dt><dd>{driver}</dd>
-                <dt>Basket</dt><dd>{dtree ? `${dtree.name} — ${dp.standingTree!.chops}/${dtree.chopTarget} throws` : "none"}</dd>
-                <dt>Gear</dt><dd>{names(gearOnly)}</dd>
-                <dt>Modifiers</dt><dd>{mods}</dd>
-                <dt>Generic</dt><dd>{names(generic)}</dd>
-                <dt>Helpers</dt><dd>{dp.help.length ? dp.help.map((id) => `${theme.card(id).name} (${manageHelpDice(id)} dice)`).join(", ") : "none"}</dd>
-              </dl>
-              <h4 className="detail-h">Points</h4>
+              <p className="detail-sub">
+                <strong>{playerScore(dp)}</strong> / 21
+                {dtree ? <> · 🪣 {dtree.name} ({dp.standingTree!.chops}/{dtree.chopTarget})</> : <> · no basket</>}
+              </p>
+
+              <div className="swap-label">In play <span className="muted">(tap a card for details)</span></div>
+              {tableau.length === 0 ? (
+                <p className="muted">No cards in play.</p>
+              ) : (
+                <div className="pills">
+                  {tableau.map((id, i) => (
+                    <button key={`${id}-${i}`} className={`pill cat-${categoryLabel(id).split("/")[0]} ${inspected === id ? "sel" : ""}`}
+                      onClick={() => setInspectCard(inspected === id ? null : id)}>
+                      {theme.card(id).name}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {inspected && (
+                <div className="card-inspect">
+                  <div className="ci-head"><strong>{theme.card(inspected).name}</strong>
+                    <span className="muted">{categoryLabel(inspected)}{cardStat(inspected) ? ` · ${cardStat(inspected)}` : ""}</span>
+                  </div>
+                  <p>{theme.card(inspected).rulesText || "—"}</p>
+                </div>
+              )}
+
+              <div className="swap-label">Points</div>
               <ul className="score-list">
                 {dp.scoredTrees.map((tid, i) => (
                   <li key={`t${i}`}><span>{theme.tree(tid).name}</span><span className="score-pts">+{theme.tree(tid).treeScore}</span></li>
@@ -554,8 +577,7 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
                 )}
                 {dp.scoredTrees.length === 0 && dp.speedClimbPoints === 0 && <li className="muted">No points yet.</li>}
               </ul>
-              <p className="score-total">Total: <strong>{playerScore(dp)}</strong> / 21</p>
-              <button className="btn btn-primary" onClick={() => setScoreDetail(null)}>Close</button>
+              <button className="btn btn-primary" onClick={closeDetail}>Close</button>
             </div>
           </div>
         );
