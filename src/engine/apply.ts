@@ -472,6 +472,10 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
       }
       s.turn = { activeSeat: order[i]!, phase: "squareUp" };
       s.lastRoll = []; // clear the previous turn's dice so the strip reflects the current turn
+      // Clear one-shot reveals so they don't re-pop on a later refresh (they live only this turn).
+      s.lastContest = null;
+      s.lastSighting = null;
+      s.orderReveal = null;
       pushLog(s, { k: "turn", seat: order[i]! });
       s.version++;
       return { ok: true, state: s };
