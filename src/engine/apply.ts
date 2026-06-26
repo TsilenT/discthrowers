@@ -3,7 +3,7 @@ import { cardCategory, redCard, treeStats } from "./cards/catalog";
 import { getHandler } from "./cards/registry";
 import { reactionHandlers } from "./cards/handlers/reaction";
 import type { CardContext } from "./cards/ctx";
-import { collectChopDice, consumePlusMinusAfterRoll, plusMinusTotal } from "./dice";
+import { collectChopDice, consumePlusMinusAfterRoll, expireThisTurnPlusMinus, plusMinusTotal } from "./dice";
 import type { Rng } from "./rng";
 import { isReactable, eligibleReactors, stoppersFor } from "./reactions";
 import { WIN_SCORE, type Action, type ApplyResult, type CardId, type GameState, type LogEntry, type PendingReaction, type PlayerState, type Seat } from "./types";
@@ -453,6 +453,8 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
       if (s.turn.phase !== "end") return fail("Not the end phase");
       // Clear cannotChopThisTurn on the current player before advancing
       p.cannotChopThisTurn = false;
+      // "This-turn" buffs (Flapjacks, Short Stack) expire even if the throw was skipped.
+      expireThisTurnPlusMinus(s, s.turn.activeSeat);
       const order = s.seatOrder;
       let i = order.indexOf(s.turn.activeSeat);
       // Advance through seatOrder, skipping seats whose skipNextTurn is set.

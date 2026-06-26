@@ -32,3 +32,18 @@ export function consumePlusMinusAfterRoll(s: GameState, seat: Seat): void {
   }
   p.plusMinus = keep;
 }
+
+/**
+ * End-of-turn expiry for when no chopping roll happened (throw skipped). Discards only
+ * "this-turn" Plus/Minus cards (they expire at end of turn regardless); keeps "next-roll"
+ * cards (they wait for the next actual roll) and persistent ones (Blisters).
+ */
+export function expireThisTurnPlusMinus(s: GameState, seat: Seat): void {
+  const p = s.players[seat]!;
+  const keep: string[] = [];
+  for (const c of p.plusMinus) {
+    if (scopeOf(c) === "this-turn") s.redDiscard.push(c);
+    else keep.push(c);
+  }
+  p.plusMinus = keep;
+}
