@@ -49,26 +49,32 @@ h1, h2, h3 { margin: 0 0 0.5rem; font-weight: 700; }
 .btn-lg { padding: 0.7rem 1.4rem; font-size: 1.05rem; border-radius: 12px; box-shadow: var(--shadow); }
 
 /* ---------- Game layout ---------- */
-.game { max-width: 1000px; margin: 0 auto; padding: 0 1rem 7.5rem; }
+/* Full-height flex column: topbar + board take their natural height, the panel
+   grows to fill the gap down to the action bar, which sits at the very bottom. */
+.game {
+  max-width: 1000px; margin: 0 auto; padding: 0 1rem;
+  height: 100vh; height: 100dvh;
+  display: flex; flex-direction: column;
+}
 
 /* Top header: brand + animated dice */
 .topbar {
-  position: sticky; top: 0; z-index: 20;
-  display: flex; align-items: center; gap: 1rem; min-height: 56px;
-  margin: 0 -1rem 0.5rem; padding: 0.5rem 1rem;
+  flex: 0 0 auto;
+  display: flex; align-items: center; gap: 1rem; min-height: 52px;
+  margin: 0 -1rem; padding: 0.5rem 1rem;
   background: linear-gradient(180deg, #163021f2, #14271bf2);
-  backdrop-filter: blur(8px); border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
 }
 .brand { font-weight: 800; font-size: 1.1rem; white-space: nowrap; }
 .topbar .dice { margin-left: auto; }
 
-/* Floating bottom action bar */
+/* Bottom action bar — last item in the column, so the panel above expands to meet it. */
 .actionbar {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  flex: 0 0 auto;
   display: flex; justify-content: center;
-  padding: 0.6rem 1rem calc(0.6rem + env(safe-area-inset-bottom, 0px));
+  margin: 0 -1rem; padding: 0.6rem 1rem calc(0.6rem + env(safe-area-inset-bottom, 0px));
   background: linear-gradient(0deg, #0c1810f7, #14271be0);
-  backdrop-filter: blur(10px); border-top: 1px solid var(--line);
+  border-top: 1px solid var(--line);
 }
 .actionbar-inner { width: 100%; max-width: 1000px; display: flex; align-items: center; gap: 1rem; }
 .ab-status { flex: 1; display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
@@ -90,14 +96,14 @@ h1, h2, h3 { margin: 0 0 0.5rem; font-weight: 700; }
 .reaction-waiting { color: var(--muted); margin: 0; }
 
 /* ---------- Hand ---------- */
-/* Tabbed Hand / Log panel */
-.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+/* Tabbed Hand / Log panel — grows to fill the space down to the action bar */
+.panel { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
 .tabs { display: flex; border-bottom: 1px solid var(--line); }
 .tab { flex: 1; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--muted); padding: .55rem .6rem; font-weight: 700; cursor: pointer; font-size: .9rem; }
 .tab:hover { color: var(--ink); }
 .tab-on { color: var(--ink); border-bottom-color: var(--accent); }
 .tab .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-left: .35rem; vertical-align: middle; }
-.panel-body { padding: .7rem; max-height: 34vh; overflow-y: auto; }
+.panel-body { flex: 1 1 auto; min-height: 0; padding: .7rem; overflow-y: auto; }
 .badge { display: inline-block; margin-left: .6rem; padding: .15rem .5rem; border-radius: 999px; font-size: .72rem; font-weight: 700; letter-spacing: .03em; vertical-align: middle; }
 .badge-go { background: var(--accent); color: var(--accent-ink); }
 
@@ -154,14 +160,15 @@ h1, h2, h3 { margin: 0 0 0.5rem; font-weight: 700; }
 @media (prefers-reduced-motion: reduce) { .die--rolling { animation: none; } }
 
 /* ---------- Board ---------- */
-.board { margin: .4rem 0; }
-.players { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: .5rem; }
+.board { flex: 0 1 auto; min-height: 0; overflow-y: auto; margin: .4rem 0; }
+.players { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .5rem; }
 .player { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: .55rem .6rem; transition: border-color .15s ease, box-shadow .15s ease; }
 .player.is-active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), var(--shadow); }
 .player.is-me { background: var(--panel2); }
 .player-top { display: flex; align-items: baseline; justify-content: space-between; gap: .5rem; }
 .player-name { font-weight: 700; }
-.player-score { font-size: 1.4rem; font-weight: 800; color: var(--accent); }
+button.player-score { background: none; border: none; padding: 0; cursor: pointer; font-size: 1.4rem; font-weight: 800; color: var(--accent); line-height: 1; }
+button.player-score:hover { text-decoration: underline; }
 .player-score small { font-size: .8rem; color: var(--muted); font-weight: 600; }
 .tag { margin-left: .4rem; padding: .05rem .4rem; border-radius: 999px; font-size: .66rem; font-weight: 700; background: var(--line); color: var(--ink); text-transform: uppercase; }
 .tag-turn { background: var(--accent); color: var(--accent-ink); }
@@ -234,5 +241,13 @@ button:not(.btn):disabled { opacity: .45; cursor: not-allowed; }
   .ab-actions { margin-left: 0; }
   .ab-actions .btn { flex: 1; }
   .ab-reaction { flex-direction: column; align-items: stretch; }
-  .game { padding-bottom: 9.5rem; }
 }
+
+/* Score breakdown popup */
+.score-card { background: var(--panel); border: 1px solid var(--accent); border-radius: 16px; padding: 1.25rem 1.5rem; min-width: 240px; max-width: 360px; box-shadow: var(--shadow); }
+.score-card h3 { margin: 0 0 .6rem; }
+.score-list { list-style: none; margin: 0 0 .6rem; padding: 0; }
+.score-list li { display: flex; justify-content: space-between; gap: 1rem; padding: .25rem 0; border-bottom: 1px solid #ffffff0d; }
+.score-pts { color: var(--accent); font-weight: 700; }
+.score-total { border-top: 1px solid var(--line); padding-top: .5rem; margin: .5rem 0 1rem; }
+.score-card .btn { width: 100%; }

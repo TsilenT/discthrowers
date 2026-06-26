@@ -69,6 +69,7 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
   const [targetingCard, setTargetingCard] = useState<string | null>(null);
   const [tab, setTab] = useState<"hand" | "log">("hand");
   const [dismissedContest, setDismissedContest] = useState<string>("");
+  const [scoreDetail, setScoreDetail] = useState<Seat | null>(null);
 
   const act = async (action: Action) => {
     setError(null);
@@ -150,7 +151,7 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
               <div key={seat} className={`player ${isActive ? "is-active" : ""} ${isMe ? "is-me" : ""}`}>
                 <div className="player-top">
                   <span className="player-name">{p.name}{isMe && <span className="tag">you</span>}{isActive && <span className="tag tag-turn">turn</span>}</span>
-                  <span className="player-score">{playerScore(p)}<small> / 21</small></span>
+                  <button className="player-score" title="See point breakdown" onClick={() => setScoreDetail(seat)}>{playerScore(p)}<small> / 21</small></button>
                 </div>
                 {td ? (
                   <div className="basket">
@@ -318,6 +319,28 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
             </div>
             <p className="contest-result">🏆 {name(contest.winner)} wins the roll-off</p>
             <button className="btn btn-primary btn-lg" onClick={() => setDismissedContest(contestKey)}>Continue</button>
+          </div>
+        </div>
+      )}
+
+      {/* ---- Score breakdown popup -------------------------------------- */}
+      {scoreDetail !== null && players[scoreDetail] && (
+        <div className="overlay" role="dialog" onClick={() => setScoreDetail(null)}>
+          <div className="score-card" onClick={(e) => e.stopPropagation()}>
+            <h3>{players[scoreDetail]!.name}’s points</h3>
+            <ul className="score-list">
+              {players[scoreDetail]!.scoredTrees.map((tid, i) => (
+                <li key={`t${i}`}><span>{theme.tree(tid).name}</span><span className="score-pts">+{theme.tree(tid).treeScore}</span></li>
+              ))}
+              {players[scoreDetail]!.speedClimbPoints > 0 && (
+                <li><span>Speed Putt bonus</span><span className="score-pts">+{players[scoreDetail]!.speedClimbPoints}</span></li>
+              )}
+              {players[scoreDetail]!.scoredTrees.length === 0 && players[scoreDetail]!.speedClimbPoints === 0 && (
+                <li className="muted">No points yet.</li>
+              )}
+            </ul>
+            <p className="score-total">Total: <strong>{playerScore(players[scoreDetail]!)}</strong> / 21</p>
+            <button className="btn btn-primary" onClick={() => setScoreDetail(null)}>Close</button>
           </div>
         </div>
       )}
