@@ -113,7 +113,9 @@ h1, h2, h3 { margin: 0 0 0.5rem; font-weight: 700; }
 .card.cat-contest { border-left-color: #fb923c; }
 
 /* ---------- Dice (pip faces, tumble animation) ---------- */
-.dice { display: flex; gap: 6px; flex-wrap: wrap; }
+.dice { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.dice-faces { display: flex; gap: 6px; }
+.dice-readout { font-size: .8rem; font-weight: 800; color: var(--accent); white-space: nowrap; }
 .die {
   display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
   width: 30px; height: 30px; padding: 4px; border-radius: 7px;

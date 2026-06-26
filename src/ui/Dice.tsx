@@ -57,13 +57,19 @@ export function Dice({ roll }: { roll: number[] }) {
 
   if (roll.length === 0) return null;
   const faces = rolling && flash ? flash : roll;
+  const landed = roll.filter((v) => v >= 4).length;
 
   return (
     <div className="dice" role="status" aria-label="Dice roll">
-      {faces.map((v, i) => {
-        const outcome = rolling ? null : v >= 4 ? "hit" : v === 3 ? "miss" : "low";
-        return <Die key={i} index={i} value={v} rolling={rolling} outcome={outcome} />;
-      })}
+      <span className="dice-faces">
+        {faces.map((v, i) => {
+          const outcome = rolling ? null : v >= 4 ? "hit" : v === 3 ? "miss" : "low";
+          return <Die key={i} index={i} value={v} rolling={rolling} outcome={outcome} />;
+        })}
+      </span>
+      {!rolling && (
+        <span className="dice-readout">{landed} landed</span>
+      )}
     </div>
   );
 }
