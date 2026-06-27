@@ -98,7 +98,8 @@ export const actionHandlers: Record<string, CardHandler> = {
         const chosen = targetP.equipment.indexOf(ctx.stealItem);
         if (chosen !== -1) idx = chosen;
       }
-      const stolen = targetP.equipment.splice(idx, 1)[0]!;
+      const stolen = targetP.equipment.splice(idx, 1)[0];
+      if (stolen === undefined) return; // nothing to take (e.g. chosen item no longer present)
       const existingIdx = actor.equipment.indexOf(stolen);
       if (existingIdx !== -1) { actor.equipment.splice(existingIdx, 1); s.redDiscard.push(stolen); } // no doubles
       actor.equipment.push(stolen);

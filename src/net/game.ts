@@ -1,7 +1,7 @@
 import { ref, get, set, onValue, runTransaction } from "firebase/database";
 import type { GameState } from "../engine/types";
 import { database, ensureSignedIn } from "./firebase";
-import { normalizeState } from "./normalize";
+import { normalizeState, stripUndefined } from "./normalize";
 import type { RtdbBackend, CommitResult } from "./types";
 
 /** Binds this browser's uid to a seat if the token matches. Returns the seat index. */
@@ -34,7 +34,7 @@ export function makeRtdbBackend(id: string): RtdbBackend {
       const tx = await runTransaction(stateRef, (current: GameState | null) => {
         const next = update(normalizeState(current));
         if (typeof next === "string") { abortError = next; return undefined; } // abort
-        return next;
+        return stripUndefined(next); // RTDB rejects any undefined in the written object
       });
       if (abortError !== null) return { ok: false, error: abortError };
       if (!tx.committed) return { ok: false, error: "The board changed — please retry." };

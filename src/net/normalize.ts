@@ -61,3 +61,22 @@ export function normalizeState(raw: GameState | null): GameState | null {
 
   return s;
 }
+
+/**
+ * Firebase RTDB throws if you try to write an object containing `undefined` anywhere.
+ * Deep-clone a value with every `undefined` removed (object keys dropped, array holes
+ * become null) so a stray optional field can never crash a transaction commit.
+ */
+export function stripUndefined<T>(value: T): T {
+  if (value === undefined) return null as unknown as T;
+  if (value === null || typeof value !== "object") return value;
+  if (Array.isArray(value)) {
+    return value.map((v) => (v === undefined ? null : stripUndefined(v))) as unknown as T;
+  }
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value)) {
+    if (v === undefined) continue; // drop the key entirely
+    out[k] = stripUndefined(v);
+  }
+  return out as T;
+}
