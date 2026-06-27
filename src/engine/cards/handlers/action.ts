@@ -1,8 +1,20 @@
 import type { CardHandler } from "../registry";
 import type { CardContext } from "../ctx";
-import { destroyStandingTree, discardOldAxe, discardTableauCard, skipTurn } from "../primitives";
+import { destroyStandingTree, discardOldAxe, discardTableauCard, fellStandingTree, skipTurn } from "../primitives";
 
 export const actionHandlers: Record<string, CardHandler> = {
+  /** Paul Bunyan: fell and score every standing basket for every player (no help-wipe). */
+  "paul-bunyan": {
+    isPlayable(_ctx: CardContext): boolean {
+      return true;
+    },
+    play(ctx: CardContext): void {
+      for (const seat of ctx.state.seatOrder) {
+        fellStandingTree(ctx.state, seat);
+      }
+    },
+  },
+
   /** Axe Break: discard target's axe. Not playable on Titanium Axe. */
   "axe-break": {
     isPlayable(ctx: CardContext): boolean {

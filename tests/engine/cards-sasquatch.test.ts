@@ -270,14 +270,14 @@ describe("paul-bunyan", () => {
     expect(getHandler("paul-bunyan").isPlayable(ctx(g, 0))).toBe(true);
   });
 
-  it("wipes all help cards from all players", () => {
+  it("does NOT wipe help cards (it's an action, not a hooligan card)", () => {
     const g = game({
       0: player({ help: ["apprentice"] }),
       1: player({ help: ["babe"] }),
     });
     getHandler("paul-bunyan").play(ctx(g, 0));
-    expect(g.players[0]!.help).toEqual([]);
-    expect(g.players[1]!.help).toEqual([]);
+    expect(g.players[0]!.help).toEqual(["apprentice"]);
+    expect(g.players[1]!.help).toEqual(["babe"]);
   });
 
   it("fells and scores all standing trees", () => {

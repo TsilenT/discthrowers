@@ -1,6 +1,6 @@
 import type { CardHandler } from "../registry";
 import type { CardContext } from "../ctx";
-import { fellStandingTree, skipTurn, wipeAllHelp } from "../primitives";
+import { skipTurn, wipeAllHelp } from "../primitives";
 
 export const sasquatchHandlers: Record<string, CardHandler> = {
   /** Sasquatch Rampage: wipe help, everyone discards hand, set redrawTo=4 for all. */
@@ -89,20 +89,6 @@ export const sasquatchHandlers: Record<string, CardHandler> = {
         }
         actor.standingTree = target.standingTree;
         target.standingTree = null;
-      }
-    },
-  },
-
-  /** Paul Bunyan: wipe help, fell and score every standing tree for every player. */
-  "paul-bunyan": {
-    isPlayable(_ctx: CardContext): boolean {
-      return true;
-    },
-    play(ctx: CardContext): void {
-      const s = ctx.state;
-      wipeAllHelp(s);
-      for (const seat of s.seatOrder) {
-        fellStandingTree(s, seat);
       }
     },
   },

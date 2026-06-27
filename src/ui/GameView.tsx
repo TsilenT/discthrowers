@@ -151,6 +151,13 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
     handPlayer.hand.some((c) => playability(c, turn.activeSeat, state, seatOrder).mode !== "none");
 
   const name = (seat: Seat) => players[seat]?.name ?? `Seat ${seat}`;
+  // Themed display label for a card's type (CSS classes still use the mechanical category).
+  const catLabel = (id: string): string => {
+    try {
+      const cat = cardCategory(id);
+      return (theme.categoryName?.(cat) ?? cat).replace("-", "/");
+    } catch { return "card"; }
+  };
   // Gear Grab: everything a target player owns that can be swiped (driver + gear).
   const stealItemsOf = (seat: Seat): string[] => {
     const pl = players[seat];
@@ -321,7 +328,7 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
                   return (
                     <li key={key} className={`card cat-${categoryLabel(cardId).split("/")[0]} ${info?.mode === "none" ? "card-dim" : ""} ${exiting === key ? "card-exit" : ""}`}>
                       <div className="card-name">{d.name}</div>
-                      <div className="card-cat">{categoryLabel(cardId)}</div>
+                      <div className="card-cat">{catLabel(cardId)}</div>
                       {d.rulesText && <div className="card-text">{d.rulesText}</div>}
                       {canPlayNow && (
                         <div className="card-actions">
@@ -715,7 +722,7 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
               {inspected && (
                 <div className="card-inspect">
                   <div className="ci-head"><strong>{theme.card(inspected).name}</strong>
-                    <span className="muted">{categoryLabel(inspected)}{cardStat(inspected) ? ` · ${cardStat(inspected)}` : ""}</span>
+                    <span className="muted">{catLabel(inspected)}{cardStat(inspected) ? ` · ${cardStat(inspected)}` : ""}</span>
                   </div>
                   <p>{theme.card(inspected).rulesText || "—"}</p>
                 </div>

@@ -17,4 +17,6 @@ export interface ThemeContent {
   label: string;
   card(id: string): CardDisplay;
   tree(id: string): TreeDisplay;
+  /** Optional themed label for a mechanical card category (e.g. "sasquatch" → "hooligans"). */
+  categoryName?(cat: CardCategory): string;
 }

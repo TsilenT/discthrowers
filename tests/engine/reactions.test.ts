@@ -41,8 +41,8 @@ describe("stoppersFor", () => {
     expect(stoppersFor("sasquatch-sighting")).toContain("debunk");
   });
 
-  it("debunk stops paul-bunyan (category: sasquatch)", () => {
-    expect(stoppersFor("paul-bunyan")).toContain("debunk");
+  it("debunk does NOT stop paul-bunyan (it's an action, not a hooligan card)", () => {
+    expect(stoppersFor("paul-bunyan")).not.toContain("debunk");
   });
 
   it("debunk stops that-darn-sasquatch (category: sasquatch)", () => {

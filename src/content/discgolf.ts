@@ -153,14 +153,14 @@ const DG_CARDS: Record<string, CardDisplay> = {
       "A hooligan confrontation halts a player's round. Target loses their next turn. Optionally claim their current basket (throws included); if you do and already had one, your old basket is abandoned.",
     category: "sasquatch",
   },
+
+  // ---- Action -------------------------------------------------------------
   "paul-bunyan": {
     name: "Course Sweep",
     rulesText:
       "An official course sweep completes every basket at once! Every player's standing basket is scored regardless of throws. Players with no standing basket get nothing. (Can trigger simultaneous wins → highest total wins.)",
-    category: "sasquatch",
+    category: "action",
   },
-
-  // ---- Action -------------------------------------------------------------
   "axe-break": {
     name: "Disc Crack",
     rulesText:
@@ -312,5 +312,8 @@ export const discGolfTheme: ThemeContent = {
       chopTarget: stats.chopTarget,
       treeScore: stats.treeScore,
     };
+  },
+  categoryName(cat) {
+    return cat === "sasquatch" ? "hooligans" : cat;
   },
 };

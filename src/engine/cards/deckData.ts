@@ -179,14 +179,14 @@ export const RED_CARD_DATA: RedCardData[] = [
     count: 2,
     effect: { wipesHelp: true, targetSkipsTurn: true, optionalStealStandingTree: true, treeComesWithChops: true },
   },
-  {
-    id: "paul-bunyan",
-    category: "sasquatch",
-    count: 1,
-    effect: { wipesHelp: true, fellAndScoreAllStandingTrees: true },
-  },
 
   // ---- Action -----------------------------------------------------------------
+  {
+    id: "paul-bunyan",
+    category: "action",
+    count: 1,
+    effect: { fellAndScoreAllStandingTrees: true },
+  },
   {
     id: "axe-break",
     category: "action",
