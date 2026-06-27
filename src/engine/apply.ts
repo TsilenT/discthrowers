@@ -424,6 +424,8 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
       if (s.turn.phase !== "manageHelp") return fail("Not the manage-help phase");
       const seat = s.turn.activeSeat;
       const hp = s.players[seat]!;
+      // Helpers only add chops to a standing basket — with none, there's nothing to roll for.
+      if (hp.standingTree === null) { s.turn.phase = "end"; s.version++; return { ok: true, state: s }; }
       const helpDice: number[] = []; // surfaced via lastRoll so the UI shows helper rolls
       let helpChops = 0;
       for (const helpCard of hp.help) {

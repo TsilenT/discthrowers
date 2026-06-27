@@ -66,7 +66,7 @@ function noOpAction(state: GameState): Action | null {
     case "squareUp":   return p.standingTree !== null ? { type: "squareUp" } : null;
     case "chop":       return (p.axe === null || p.standingTree === null || p.cannotChopThisTurn || p.axeSetAside) ? { type: "chop" } : null;
     case "longSaw":    return p.help.includes("long-saw-and-partner") ? null : { type: "longSaw" };
-    case "manageHelp": return p.help.every((c) => c === "long-saw-and-partner") ? { type: "manageHelp" } : null;
+    case "manageHelp": return (p.standingTree === null || p.help.every((c) => c === "long-saw-and-partner")) ? { type: "manageHelp" } : null;
     default:           return null;
   }
 }
