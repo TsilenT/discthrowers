@@ -3,8 +3,10 @@
  *
  * give-me-a-hand persists in the actor's equipment (acting as a persistent tableau).
  * It records on the TARGET player's giveMeAHand array.
- * On the TARGET's next chop, the first die is "hijacked": if 4/5/6 → chop goes to
- * the BY-player's standing tree. The hijacked die still counts in the target's break tally.
+ * On the TARGET's next chop, the assisting (BY) player TAKES the first die: if 4/5/6 →
+ * 1 chop goes to the BY-player's standing tree. The taken die is removed from the
+ * roller's roll entirely — it does NOT count toward the roller's chops or driver break,
+ * and is not part of the roller's chop log dice count (a separate "assist" entry covers it).
  * After the chop, giveMeAHand entries are cleared and the give-me-a-hand card is
  * discarded from the by-player's equipment to redDiscard.
  */
@@ -99,9 +101,9 @@ describe("give-me-a-hand: chop hijack", () => {
   /**
    * Scenario: seat 0 played give-me-a-hand on seat 1.
    * seat 1 is now chopping. seed 4 → dice=[6,2,2]
-   *   - First die: 6 → hijacked chop for seat 0's tree
-   *   - Die still counts for break tally: [6,2,2] → 2 breaks, no axe break
-   *   - Target (seat 1) scores: dice[1..] [2,2] → 0 chops
+   *   - First die: 6 → taken by seat 0 (assist), 1 chop for seat 0's tree
+   *   - Taken die is removed from the roller's roll entirely
+   *   - Roller (seat 1) resolves only [2,2] → 0 chops, 2 breaks (no driver break)
    * After chop: seat 0's giveMeAHand card removed from equipment → redDiscard
    */
   it("first die 4+ hijacks chop to by-player's tree (seed 4 → first die=6)", () => {
@@ -181,9 +183,17 @@ describe("give-me-a-hand: chop hijack", () => {
     expect((s.log ?? []).some((e) => e.k === "assist" && e.by === 0 && e.target === 1 && e.landed === false)).toBe(true);
   });
 
-  it("hijacked die STILL counts toward target's break tally (seed 4: [6,2,2] → 2 breaks, no break)", () => {
-    // seed 4: [6,2,2] → 2 breaks (2,2) from remaining, but we verify axe intact
-    // Also the 6 itself is not a break die. Total break dice: 2 (not 3) → axe intact.
+  it("the taken die is EXCLUDED from the roller's break tally and chop log", () => {
+    // Rig 3 ones: [1,1,1]. The assist takes die[0]=1, leaving the roller [1,1].
+    // Old behavior counted all 3 → break. New behavior: roller has only 2 break dice
+    // (< 3) → driver survives. The chop log reports 2 dice, not 3.
+    const diceSequence = [1, 1, 1];
+    let callCount = 0;
+    const riggedRng = {
+      nextFloat: () => 0,
+      nextInt: (_m: number) => diceSequence[callCount++]! - 1,
+      shuffle: <T>(a: T[]) => a,
+    };
     const initState: GameState = {
       version: 0,
       players: {
@@ -196,15 +206,20 @@ describe("give-me-a-hand: chop hijack", () => {
       turn: { activeSeat: 1, phase: "chop" },
       lastRoll: [], winner: null, pendingReaction: null,
     };
-    const s = ok(apply(initState, { type: "chop" }, mulberry32(4)));
-    // Axe intact: all 3 dice [6,2,2] count for break tally → 2 breaks, not 3 → no axe break
+    const s = ok(apply(initState, { type: "chop" }, riggedRng));
+    // Driver survives: roller's own dice [1,1] = 2 breaks, not 3.
     expect(s.players[1]!.axe).toBe("carpenters-axe");
+    // Chop log counts only the roller's dice (2), not the taken die.
+    const chopLog = (s.log ?? []).find((e) => e.k === "chop");
+    expect(chopLog && chopLog.k === "chop" ? chopLog.dice : -1).toBe(2);
+    // lastRoll reflects the roller's dice only.
+    expect(s.lastRoll).toEqual([1, 1]);
   });
 
-  it("hijacked die causes axe break when all 3 dice count toward 3+ breaks/misses", () => {
-    // Rig dice as [2, 1, 1] → first die=2 (hijacked, <4, no chop for by-player)
-    // But all 3 count for break tally: [2,1,1] → 3 breaks → axe breaks
-    const diceSequence = [2, 1, 1];
+  it("driver breaks only when the roller's OWN dice reach 3+ breaks", () => {
+    // 4 dice rolled (base 3 + Slight Tailwind). Rig [2,1,1,1]: assist takes die[0]=2,
+    // leaving the roller [1,1,1] → 3 breaks → driver breaks.
+    const diceSequence = [2, 1, 1, 1];
     let callCount = 0;
     const riggedRng = {
       nextFloat: () => 0,
@@ -215,7 +230,7 @@ describe("give-me-a-hand: chop hijack", () => {
       version: 0,
       players: {
         0: player({ equipment: ["give-me-a-hand"], standingTree: null }),
-        1: player({ axe: "carpenters-axe", standingTree: { treeId: "tree-red-oak", chops: 0 }, giveMeAHand: [{ bySeat: 0 }] }),
+        1: player({ axe: "carpenters-axe", plusMinus: ["short-stack"], standingTree: { treeId: "tree-red-oak", chops: 0 }, giveMeAHand: [{ bySeat: 0 }] }),
       },
       seatOrder: [0, 1],
       redDeck: [], redDiscard: [], treeDeck: [], treeDiscard: [],
@@ -224,7 +239,7 @@ describe("give-me-a-hand: chop hijack", () => {
       lastRoll: [], winner: null, pendingReaction: null,
     };
     const s = ok(apply(initState, { type: "chop" }, riggedRng));
-    // Axe broken (3 breaks from [2,1,1])
+    // Driver broken (3 breaks from the roller's [1,1,1])
     expect(s.players[1]!.axe).toBeNull();
     expect(s.redDiscard).toContain("carpenters-axe");
   });

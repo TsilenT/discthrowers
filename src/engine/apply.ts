@@ -352,27 +352,25 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
       if (p.axe === null || p.standingTree === null) { s.turn.phase = "longSaw"; s.version++; return { ok: true, state: s }; }
       const n = collectChopDice(p);
       const dice = rollDice(n, rng);
-      s.lastRoll = dice;
 
-      // ── Give Me a Hand: hijack the first die ────────────────────────────────
-      // For each giveMeAHand entry on this player, the first die of the roll is
-      // "hijacked": if it's 4/5/6, add 1 chop to the BY-player's standing tree
-      // (clamped to stockpile; check fell+win for that player). The hijacked die
-      // STILL counts toward the target's break tally. The remaining dice score
-      // normally for the target.
+      // ── Disc Assist (Give Me a Hand): the assisting player takes one die ─────
+      // The first die of the roll is taken by the assisting (BY) player for their
+      // own basket: if it's 4/5/6 it adds 1 chop to their standing basket (clamped
+      // to stockpile; check fell+win for them). That die is removed from the
+      // ROLLER's roll entirely — it does NOT count toward the roller's chops or
+      // driver break, and is not shown as part of the roller's roll in the log.
+      // A separate "assist" log entry covers the taken die.
       //
-      // M3 deterministic: one entry per play of give-me-a-hand; multiple entries
-      // would consume the same first die — in practice there's usually only one.
-      // We process the first entry only (it hijacks die[0]).
-      let hijackedDieIdx = -1;
-      if (p.giveMeAHand.length > 0 && dice.length > 0) {
+      // M3 deterministic: one entry per play of give-me-a-hand; we process the
+      // first entry only (it takes die[0]).
+      const assisted = p.giveMeAHand.length > 0 && dice.length > 0;
+      if (assisted) {
         const entry = p.giveMeAHand[0]!;
-        const hijackedDie = dice[0]!;
-        hijackedDieIdx = 0;
+        const assistDie = dice[0]!;
         // Log the Disc Assist resolution whether it lands or whiffs.
-        pushLog(s, { k: "assist", by: entry.bySeat, target: s.turn.activeSeat, landed: hijackedDie >= 4 });
-        if (hijackedDie >= 4) {
-          // Score 1 chop for the by-player's standing tree
+        pushLog(s, { k: "assist", by: entry.bySeat, target: s.turn.activeSeat, landed: assistDie >= 4 });
+        if (assistDie >= 4) {
+          // Score 1 chop for the by-player's standing basket
           const byPlayer = s.players[entry.bySeat];
           if (byPlayer?.standingTree) {
             const gained = Math.min(1, s.chopStockpile);
@@ -383,6 +381,7 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
               p.giveMeAHand = [];
               const eqIdx = byPlayer.equipment.indexOf("give-me-a-hand");
               if (eqIdx !== -1) { byPlayer.equipment.splice(eqIdx, 1); s.redDiscard.push("give-me-a-hand"); }
+              s.lastRoll = dice.slice(1);
               s.version++;
               return { ok: true, state: s };
             }
@@ -397,19 +396,14 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
         }
       }
 
-      // ── Normal chop resolution ───────────────────────────────────────────────
-      // All dice (including the hijacked one) count for the break tally.
-      // The hijacked die does NOT count toward the TARGET's chop score if it was
-      // 4/5/6 (it was credited to the by-player). If it was <4, it scores normally
-      // for the target (miss or break count, not a chop).
-      const { chops: rawChops, axeBreaks } = resolveChop(dice);
-      // Subtract hijacked die's chop contribution from the target's score
-      let targetChops = rawChops;
-      if (hijackedDieIdx === 0 && dice[0]! >= 4) {
-        targetChops = Math.max(0, rawChops - 1); // hijacked die's chop goes to by-player
-      }
+      // ── Roller's chop resolution ─────────────────────────────────────────────
+      // The roller keeps every die except the one taken by the assist. Chops and
+      // the driver-break tally are computed on the roller's dice only.
+      const rollerDice = assisted ? dice.slice(1) : dice;
+      s.lastRoll = rollerDice;
+      const { chops, axeBreaks } = resolveChop(rollerDice);
       const tree = p.standingTree;
-      const gained = Math.min(targetChops, s.chopStockpile);
+      const gained = Math.min(chops, s.chopStockpile);
       tree.chops += gained;
       s.chopStockpile -= gained;
       consumePlusMinusAfterRoll(s, s.turn.activeSeat);
@@ -417,7 +411,7 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
       // Unbreakable discs (Pro-Stamped / Titanium) survive break results.
       const broke = axeBreaks && p.axe !== null && !redCard(p.axe).effect.unbreakable;
       if (broke) { s.redDiscard.push(p.axe!); p.axe = null; }
-      pushLog(s, { k: "chop", seat: s.turn.activeSeat, chops: gained, broke, dice: dice.length });
+      pushLog(s, { k: "chop", seat: s.turn.activeSeat, chops: gained, broke, dice: rollerDice.length });
       s.turn.phase = "longSaw";
       s.version++;
       return { ok: true, state: s };
