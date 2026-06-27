@@ -116,9 +116,9 @@ const DG_CARDS: Record<string, CardDisplay> = {
     category: "help",
   },
   "babe": {
-    name: "Blue Ox",
+    name: "Course Pro",
     rulesText:
-      "A legendary power caddy. When you manage the help, roll two dice; each 4/5/6 adds a throw to your basket. Cannot be poached with Bag Snatch (only Blue Ox Biscuit moves it).",
+      "A touring legend on your bag. When you manage the help, roll two dice; each 4/5/6 adds a throw to your basket. Cannot be poached with Bag Snatch (only an Endorsement Deal moves them).",
     category: "help",
   },
   "long-saw-and-partner": {
@@ -206,13 +206,13 @@ const DG_CARDS: Record<string, CardDisplay> = {
   "lure-help": {
     name: "Caddy Poach",
     rulesText:
-      "Lure a Help card away from another player to your side. Cannot take Blue Ox.",
+      "Lure a Help card away from another player to your side. Cannot take the Course Pro.",
     category: "action",
   },
   "babe-biscuit": {
-    name: "Blue Ox Biscuit",
+    name: "Endorsement Deal",
     rulesText:
-      "Coax Blue Ox to your side of the course; or if Blue Ox is in the discard, retrieve it and put it in front of you.",
+      "Tempt the Course Pro onto your bag with a sponsorship; or if the Course Pro is in the discard, sign them and put them in front of you.",
     category: "action",
   },
   "give-me-a-hand": {
