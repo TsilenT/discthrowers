@@ -160,6 +160,7 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
       case "turn": return `▶ ${name(e.seat)}’s turn`;
       case "play": return `${name(e.seat)} played ${theme.card(e.card).name}${e.target !== undefined ? ` on ${name(e.target)}` : ""}`;
       case "discard": return `${name(e.seat)} discarded ${theme.card(e.card).name}`;
+      case "axeReplaced": return `${name(e.seat)} discarded ${theme.card(e.discarded).name} (replaced driver)`;
       case "chop": return `${name(e.seat)} threw — ${e.chops} landed (${e.dice} dice)${e.broke ? ", driver broke!" : ""}`;
       case "help": return `${name(e.seat)}’s helpers threw — ${e.chops} landed (${e.dice} dice)`;
       case "timber": return `🪣 ${name(e.seat)} sank ${theme.tree(e.tree).name}`;

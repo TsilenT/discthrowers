@@ -51,6 +51,7 @@ export type LogEntry =
   | { k: "turn"; seat: Seat }
   | { k: "play"; seat: Seat; card: CardId; target?: Seat }
   | { k: "discard"; seat: Seat; card: CardId }
+  | { k: "axeReplaced"; seat: Seat; discarded: CardId }
   | { k: "chop"; seat: Seat; chops: number; broke: boolean; dice: number }
   | { k: "help"; seat: Seat; chops: number; dice: number }
   | { k: "timber"; seat: Seat; tree: TreeId }

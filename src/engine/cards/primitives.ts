@@ -1,5 +1,21 @@
 import { isAxe } from "./catalog";
-import type { CardId, GameState, Seat } from "../types";
+import type { CardId, GameState, LogEntry, Seat } from "../types";
+
+/** Append a log entry, capping history at the most recent 80 (mirrors apply.ts pushLog). */
+export function logEvent(s: GameState, entry: LogEntry): void {
+  const log = (s.log ??= []);
+  log.push(entry);
+  if (log.length > 80) s.log = log.slice(-80);
+}
+
+/** Discard a seat's current driver (if any) and log what was tossed before equipping a new one. */
+export function discardOldAxe(s: GameState, seat: Seat): void {
+  const p = s.players[seat]!;
+  if (p.axe === null) return;
+  s.redDiscard.push(p.axe);
+  logEvent(s, { k: "axeReplaced", seat, discarded: p.axe });
+  p.axe = null;
+}
 
 export function discardFromHand(s: GameState, seat: Seat, card: CardId): void {
   const p = s.players[seat]!; const i = p.hand.indexOf(card);

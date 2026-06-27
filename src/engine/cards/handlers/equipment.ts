@@ -1,6 +1,6 @@
 import type { CardHandler } from "../registry";
 import type { CardContext } from "../ctx";
-import { addEquipment } from "../primitives";
+import { addEquipment, discardOldAxe } from "../primitives";
 import type { CardId, GameState, Seat } from "../../types";
 
 /** Create a self-target equipment handler (no doubles: not playable if already owned). */
@@ -18,9 +18,8 @@ function selfEquipmentHandler(cardId: string): CardHandler {
 
 /** Equip an axe on a seat, discarding any axe that seat already had (one axe at a time). */
 function equipAxe(state: GameState, seat: Seat, cardId: CardId): void {
-  const p = state.players[seat]!;
-  if (p.axe !== null) state.redDiscard.push(p.axe);
-  p.axe = cardId;
+  discardOldAxe(state, seat); // logs what (if anything) got replaced
+  state.players[seat]!.axe = cardId;
 }
 
 /**

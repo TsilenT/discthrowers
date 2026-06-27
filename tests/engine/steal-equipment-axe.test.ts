@@ -26,6 +26,17 @@ describe("Steal Equipment works on axes", () => {
     expect(s.redDiscard).toContain("chopping-axe"); // old axe discarded
   });
 
+  it("logs the discarded driver when one gets replaced", () => {
+    let s = toPlay();
+    s.players[0]!.hand = ["steal-equipment"];
+    s.players[0]!.axe = "chopping-axe";
+    s.players[1]!.axe = "titanium-axe";
+    s.players[1]!.equipment = [];
+    s = ok(apply(s, { type: "playCard", card: "steal-equipment", target: 1 }, mulberry32(4)));
+    const replaced = (s.log ?? []).find((e) => e.k === "axeReplaced");
+    expect(replaced).toEqual({ k: "axeReplaced", seat: 0, discarded: "chopping-axe" });
+  });
+
   it("takes the chosen gear, leaving the axe and other gear behind", () => {
     let s = toPlay();
     s.players[0]!.hand = ["steal-equipment"];

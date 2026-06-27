@@ -1,6 +1,6 @@
 import type { CardHandler } from "../registry";
 import type { CardContext } from "../ctx";
-import { destroyStandingTree, discardTableauCard, skipTurn } from "../primitives";
+import { destroyStandingTree, discardOldAxe, discardTableauCard, skipTurn } from "../primitives";
 
 export const actionHandlers: Record<string, CardHandler> = {
   /** Axe Break: discard target's axe. Not playable on Titanium Axe. */
@@ -57,9 +57,7 @@ export const actionHandlers: Record<string, CardHandler> = {
       const targetP = s.players[ctx.target!]!;
       const stolenAxe = targetP.axe!;
       targetP.axe = null;
-      if (actor.axe !== null) {
-        s.redDiscard.push(actor.axe);
-      }
+      discardOldAxe(s, ctx.actorSeat); // logs the actor's replaced driver, if any
       actor.axe = stolenAxe;
     },
   },
@@ -90,7 +88,7 @@ export const actionHandlers: Record<string, CardHandler> = {
         // Steal the axe — one axe at a time: discard the actor's current axe first.
         const stolen = targetP.axe;
         targetP.axe = null;
-        if (actor.axe !== null) s.redDiscard.push(actor.axe);
+        discardOldAxe(s, ctx.actorSeat); // logs the actor's replaced driver, if any
         actor.axe = stolen;
         return;
       }
