@@ -45,7 +45,7 @@ const DG_CARDS: Record<string, CardDisplay> = {
   "titanium-axe": {
     name: "Pro-Stamped Driver",
     rulesText:
-      "A tournament-grade disc that never warps. Throws with one extra die (base 4). Disc Swap and disc-destroying cards cannot affect it.",
+      "A tournament-grade disc that never warps. Throws with one extra die (base 4). It can't be cracked or destroyed, but it can still be swiped (Bag Snatch / Gear Grab).",
     category: "equipment",
   },
   "dull-axe": {
