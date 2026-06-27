@@ -94,6 +94,7 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
   const [swapUI, setSwapUI] = useState<{ mine: number; targetSeat: Seat | null; theirs: number } | null>(null);
   const [standoffUI, setStandoffUI] = useState<{ targetSeat: Seat | null; take: boolean } | null>(null);
   const [stealUI, setStealUI] = useState<{ targetSeat: Seat | null; item: string | null } | null>(null);
+  const [winDismissed, setWinDismissed] = useState(false); // hide win overlay to look around at players/log
   // Juice: transient visual effects
   const [chains, setChains] = useState<{ seat: Seat; v: number } | null>(null);   // "I HEARD CHAINS!" burst
   const [breakSeat, setBreakSeat] = useState<{ seat: Seat; v: number } | null>(null); // driver-break shake
@@ -698,14 +699,32 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
       {chains && <div key={chains.v} className="chains-burst" aria-hidden="true">I HEARD CHAINS!</div>}
 
       {/* ---- Win overlay ------------------------------------------------ */}
-      {winner !== null && (
-        <div className="overlay" role="alert">
-          <div className="win-card">
-            <div className="win-emoji">🏆</div>
-            <h2>{players[winner]?.name ?? `Seat ${winner}`} wins!</h2>
-            <button className="btn btn-primary btn-lg" onClick={() => { location.hash = "#/"; }}>Back to start</button>
+      {winner !== null && !winDismissed && (() => {
+        const standings = [...seatOrder].sort((a, b) => playerScore(players[b]!) - playerScore(players[a]!));
+        return (
+          <div className="overlay" role="alert">
+            <div className="win-card">
+              <div className="win-emoji">🏆</div>
+              <h2>{players[winner]?.name ?? `Seat ${winner}`} wins!</h2>
+              <ol className="win-standings">
+                {standings.map((seat, i) => (
+                  <li key={seat} className={seat === winner ? "is-winner" : undefined}>
+                    <span className="rank">{i + 1}</span>
+                    <span className="who">{name(seat)}</span>
+                    <span className="pts">{playerScore(players[seat]!)} pts</span>
+                  </li>
+                ))}
+              </ol>
+              <div className="win-actions">
+                <button className="btn btn-lg" onClick={() => setWinDismissed(true)}>Look around</button>
+                <button className="btn btn-primary btn-lg" onClick={() => { location.hash = "#/"; }}>Back to start</button>
+              </div>
+            </div>
           </div>
-        </div>
+        );
+      })()}
+      {winner !== null && winDismissed && (
+        <button className="results-pill" onClick={() => setWinDismissed(false)}>🏆 Results</button>
       )}
     </div>
   );
