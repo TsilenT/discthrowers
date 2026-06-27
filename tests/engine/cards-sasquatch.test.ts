@@ -23,9 +23,10 @@ function game(players: Record<number, PlayerState>, turn?: Partial<GameState["tu
   };
 }
 
-function ctx(state: GameState, actorSeat: number, target?: number): CardContext {
+function ctx(state: GameState, actorSeat: number, target?: number, takeBasket?: boolean): CardContext {
   const rng = { nextFloat: () => 0.5, nextInt: (m: number) => Math.floor(m / 2), shuffle: <T>(a: T[]) => a };
-  return target === undefined ? { state, actorSeat, rng } : { state, actorSeat, target, rng };
+  const base = target === undefined ? { state, actorSeat, rng } : { state, actorSeat, target, rng };
+  return takeBasket === undefined ? base : { ...base, takeBasket };
 }
 
 const ok = (r: ReturnType<typeof apply>) => {
@@ -226,26 +227,38 @@ describe("sasquatch-mating-season", () => {
     expect(g.players[1]!.skipNextTurn).toBe(true);
   });
 
-  it("M2: takes target's tree if actor has no tree", () => {
+  it("M2: takes target's tree when actor opts to take the basket", () => {
     const g = game({
       0: player({ standingTree: null }),
       1: player({ standingTree: { treeId: "tree-red-oak", chops: 3 } }),
     });
-    getHandler("sasquatch-mating-season").play(ctx(g, 0, 1));
+    getHandler("sasquatch-mating-season").play(ctx(g, 0, 1, true));
     // Actor gets the tree with chops
     expect(g.players[0]!.standingTree).toEqual({ treeId: "tree-red-oak", chops: 3 });
     expect(g.players[1]!.standingTree).toBeNull();
   });
 
-  it("M2: does not steal tree if actor already has one", () => {
+  it("M2: leaves the basket alone when actor does not opt to take it", () => {
+    const g = game({
+      0: player({ standingTree: null }),
+      1: player({ standingTree: { treeId: "tree-red-oak", chops: 3 } }),
+    });
+    getHandler("sasquatch-mating-season").play(ctx(g, 0, 1));
+    // No takeBasket → target keeps their basket
+    expect(g.players[0]!.standingTree).toBeNull();
+    expect(g.players[1]!.standingTree).toEqual({ treeId: "tree-red-oak", chops: 3 });
+  });
+
+  it("M2: discards actor's own basket when taking target's", () => {
     const g = game({
       0: player({ standingTree: { treeId: "tree-norway-pine", chops: 1 } }),
       1: player({ standingTree: { treeId: "tree-red-oak", chops: 3 } }),
     });
-    getHandler("sasquatch-mating-season").play(ctx(g, 0, 1));
-    // Actor keeps their tree; target keeps theirs
-    expect(g.players[0]!.standingTree).toEqual({ treeId: "tree-norway-pine", chops: 1 });
-    expect(g.players[1]!.standingTree).toEqual({ treeId: "tree-red-oak", chops: 3 });
+    getHandler("sasquatch-mating-season").play(ctx(g, 0, 1, true));
+    // Actor swaps to target's basket; own basket discarded, its chops returned to stockpile
+    expect(g.players[0]!.standingTree).toEqual({ treeId: "tree-red-oak", chops: 3 });
+    expect(g.players[1]!.standingTree).toBeNull();
+    expect(g.treeDiscard).toContain("tree-norway-pine");
   });
 });
 

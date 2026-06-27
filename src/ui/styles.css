@@ -287,6 +287,8 @@ button:not(.btn):disabled { opacity: .45; cursor: not-allowed; }
 .ci-head { display: flex; justify-content: space-between; gap: .5rem; align-items: baseline; margin-bottom: .25rem; }
 .ci-head .muted { font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
 .card-inspect p { margin: 0; font-size: .85rem; color: #cfe3d5; }
+.statuses { display: flex; flex-wrap: wrap; gap: .35rem; margin-bottom: .5rem; }
+.status-pill { font-size: .78rem; padding: .2rem .55rem; border-radius: 999px; background: #2a2410; border: 1px solid var(--gold); color: var(--gold); }
 
 /* Score Card Swap chooser */
 .swap-label { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: .7rem 0 .35rem; }

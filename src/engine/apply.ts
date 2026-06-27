@@ -103,11 +103,12 @@ function checkAnyWin(s: GameState): boolean {
  * Mutates s. Does NOT bump version (caller does that).
  * Returns true if the game was won (caller should return early).
  */
-function resolvePlayedCard(s: GameState, card: CardId, actorSeat: Seat, target: Seat | undefined, rng: Rng, swap?: { mine: number; theirs: number }): boolean {
+function resolvePlayedCard(s: GameState, card: CardId, actorSeat: Seat, target: Seat | undefined, rng: Rng, swap?: { mine: number; theirs: number }, takeBasket?: boolean): boolean {
   const ctx: CardContext = {
     state: s, actorSeat, rng,
     ...(target !== undefined ? { target } : {}),
     ...(swap !== undefined ? { swap } : {}),
+    ...(takeBasket !== undefined ? { takeBasket } : {}),
   };
   const handler = getHandler(card);
   handler.play(ctx);
@@ -174,6 +175,7 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
         state: s, actorSeat: activeSeat, rng,
         ...(action.target !== undefined ? { target: action.target } : {}),
         ...(action.swap !== undefined ? { swap: action.swap } : {}),
+        ...(action.takeBasket !== undefined ? { takeBasket: action.takeBasket } : {}),
       };
       const handler = getHandler(card);
       if (!handler.isPlayable(ctx)) return fail("That card is not playable in this situation");
@@ -194,6 +196,7 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
           passed: [],
           ...(action.target !== undefined ? { target: action.target } : {}),
           ...(action.swap !== undefined ? { swap: action.swap } : {}),
+          ...(action.takeBasket !== undefined ? { takeBasket: action.takeBasket } : {}),
         };
         s.pendingReaction = pending;
         s.version++;
@@ -201,7 +204,7 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
       }
 
       // No reactors — resolve immediately
-      if (resolvePlayedCard(s, card, activeSeat, action.target, rng, action.swap)) {
+      if (resolvePlayedCard(s, card, activeSeat, action.target, rng, action.swap, action.takeBasket)) {
         s.version++;
         return { ok: true, state: s };
       }
@@ -292,8 +295,9 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
         const actorSeat = pr.actorSeat;
         const target = pr.target;
         const swap = pr.swap;
+        const takeBasket = pr.takeBasket;
         s.pendingReaction = null;
-        if (resolvePlayedCard(s, pendingCard, actorSeat, target, rng, swap)) {
+        if (resolvePlayedCard(s, pendingCard, actorSeat, target, rng, swap, takeBasket)) {
           s.version++;
           return { ok: true, state: s };
         }
@@ -379,7 +383,8 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
       s.chopStockpile -= gained;
       consumePlusMinusAfterRoll(s, s.turn.activeSeat);
       if (checkFellAndWin(s, s.turn.activeSeat)) { s.version++; return { ok: true, state: s }; }
-      const broke = axeBreaks && p.axe !== null;
+      // Unbreakable discs (Pro-Stamped / Titanium) survive break results.
+      const broke = axeBreaks && p.axe !== null && !redCard(p.axe).effect.unbreakable;
       if (broke) { s.redDiscard.push(p.axe!); p.axe = null; }
       pushLog(s, { k: "chop", seat: s.turn.activeSeat, chops: gained, broke, dice: dice.length });
       s.turn.phase = "longSaw";

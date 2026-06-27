@@ -6,6 +6,7 @@ export interface CardContext {
   actorSeat: Seat;        // who played the card
   target?: Seat;          // chosen target seat, if the card needs one
   swap?: { mine: number; theirs: number }; // Score Card Swap's chosen hole indices
+  takeBasket?: boolean; // Hooligan Standoff: whether to also take the target's basket
   rng: Rng;
 }
 

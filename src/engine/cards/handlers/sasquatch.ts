@@ -78,10 +78,15 @@ export const sasquatchHandlers: Record<string, CardHandler> = {
       wipeAllHelp(s);
       const targetSeat = ctx.target!;
       skipTurn(s, targetSeat);
-      // M2: Take target's standing tree if actor has none (chops come with it)
+      // Optionally take the target's standing basket (its chops come with it). If you
+      // take it and already had a basket, your old one is discarded (chops returned).
       const actor = s.players[ctx.actorSeat]!;
       const target = s.players[targetSeat]!;
-      if (actor.standingTree === null && target.standingTree !== null) {
+      if (ctx.takeBasket && target.standingTree !== null) {
+        if (actor.standingTree !== null) {
+          s.chopStockpile += actor.standingTree.chops;
+          s.treeDiscard.push(actor.standingTree.treeId);
+        }
         actor.standingTree = target.standingTree;
         target.standingTree = null;
       }

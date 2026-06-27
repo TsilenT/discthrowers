@@ -58,6 +58,11 @@ function categoryLabel(id: string): string {
 /** Compact icons for non-axe gear shown on the player strip. */
 const GEAR_ICON: Record<string, string> = { gloves: "🧤", boots: "👟" };
 
+/** Cards that open their own multi-step chooser instead of the generic target picker. */
+function hasChooser(cardId: string): boolean {
+  return cardId === "switch-tags" || cardId === "sasquatch-mating-season";
+}
+
 function noOpAction(state: GameState): Action | null {
   const { turn, players } = state;
   const p = players[turn.activeSeat];
@@ -87,6 +92,7 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
   const [scoreDetail, setScoreDetail] = useState<Seat | null>(null);
   const [inspectCard, setInspectCard] = useState<string | null>(null); // full-card inspector inside the detail popup
   const [swapUI, setSwapUI] = useState<{ mine: number; targetSeat: Seat | null; theirs: number } | null>(null);
+  const [standoffUI, setStandoffUI] = useState<{ targetSeat: Seat | null; take: boolean } | null>(null);
   // Juice: transient visual effects
   const [chains, setChains] = useState<{ seat: Seat; v: number } | null>(null);   // "I HEARD CHAINS!" burst
   const [breakSeat, setBreakSeat] = useState<{ seat: Seat; v: number } | null>(null); // driver-break shake
@@ -313,15 +319,19 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
                           {info?.mode === "self" && (
                             <button className="btn btn-primary btn-sm" onClick={() => playMotion(key, { type: "playCard", card: cardId })}>Play</button>
                           )}
-                          {/* Score Card Swap opens a chooser (which hole to give / take). */}
+                          {/* Cards with an extra choice open their own chooser. */}
                           {cardId === "switch-tags" && info?.mode === "target" && (
                             <button className="btn btn-primary btn-sm"
                               onClick={() => setSwapUI({ mine: 0, targetSeat: info.legalTargets[0] ?? null, theirs: 0 })}>Swap ▸</button>
                           )}
-                          {cardId !== "switch-tags" && (info?.mode === "target" || info?.mode === "axe") && info.legalTargets.length > 0 && !targeting && (
+                          {cardId === "sasquatch-mating-season" && info?.mode === "target" && (
+                            <button className="btn btn-primary btn-sm"
+                              onClick={() => setStandoffUI({ targetSeat: info.legalTargets[0] ?? null, take: false })}>Standoff ▸</button>
+                          )}
+                          {!hasChooser(cardId) && (info?.mode === "target" || info?.mode === "axe") && info.legalTargets.length > 0 && !targeting && (
                             <button className="btn btn-sm" onClick={() => setTargetingCard(key)}>Play ▸</button>
                           )}
-                          {cardId !== "switch-tags" && (info?.mode === "target" || info?.mode === "axe") && info.legalTargets.length > 0 && targeting && (
+                          {!hasChooser(cardId) && (info?.mode === "target" || info?.mode === "axe") && info.legalTargets.length > 0 && targeting && (
                             <div className="targets">
                               <span className="muted">on:</span>
                               {info.legalTargets.map((t) => (
@@ -521,6 +531,44 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
         );
       })()}
 
+      {/* ---- Hooligan Standoff chooser ---------------------------------- */}
+      {standoffUI && (() => {
+        const opps = seatOrder.filter((s) => s !== turn.activeSeat);
+        const tgt = standoffUI.targetSeat;
+        const tgtBasket = tgt !== null && players[tgt]?.standingTree ? theme.tree(players[tgt]!.standingTree!.treeId) : null;
+        return (
+          <div className="overlay" role="dialog" onClick={() => setStandoffUI(null)}>
+            <div className="score-card" onClick={(e) => e.stopPropagation()}>
+              <h3>{theme.card("sasquatch-mating-season").name}</h3>
+              <p className="muted">They lose their next turn. You may also claim their basket.</p>
+              <div className="swap-label">Whose turn to skip</div>
+              <div className="swap-opts">
+                {opps.map((seat) => (
+                  <button key={seat} className={`btn btn-sm ${standoffUI.targetSeat === seat ? "swap-sel" : ""}`}
+                    onClick={() => setStandoffUI({ ...standoffUI, targetSeat: seat, take: false })}>
+                    {name(seat)}
+                  </button>
+                ))}
+              </div>
+              <div className="swap-label">Take their basket?</div>
+              {tgtBasket ? (
+                <button className={`btn btn-sm ${standoffUI.take ? "swap-sel" : ""}`}
+                  onClick={() => setStandoffUI({ ...standoffUI, take: !standoffUI.take })}>
+                  {standoffUI.take ? "✓ " : ""}Claim {tgtBasket.name} ({players[tgt!]!.standingTree!.chops}/{tgtBasket.chopTarget})
+                </button>
+              ) : <p className="muted">They have no basket to take.</p>}
+              <div className="swap-actions">
+                <button className="btn btn-primary" disabled={standoffUI.targetSeat === null}
+                  onClick={() => { void act({ type: "playCard", card: "sasquatch-mating-season", target: standoffUI.targetSeat!, takeBasket: standoffUI.take }); setStandoffUI(null); }}>
+                  Play
+                </button>
+                <button className="btn btn-ghost" onClick={() => setStandoffUI(null)}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ---- Player detail popup (tappable card pills + inline inspector) -- */}
       {scoreDetail !== null && players[scoreDetail] && (() => {
         const dp = players[scoreDetail]!;
@@ -544,6 +592,14 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
                 <strong>{playerScore(dp)}</strong> / 21
                 {dtree ? <> · 🪣 {dtree.name} ({dp.standingTree!.chops}/{dtree.chopTarget})</> : <> · no basket</>}
               </p>
+
+              {(dp.skipNextTurn || dp.axeSetAside || dp.cannotChopThisTurn) && (
+                <div className="statuses">
+                  {dp.skipNextTurn && <span className="status-pill">💤 Loses their next turn</span>}
+                  {dp.axeSetAside && <span className="status-pill">🪚 Driver sidelined (Tandem Throwers)</span>}
+                  {dp.cannotChopThisTurn && <span className="status-pill">🚫 Can’t throw this turn</span>}
+                </div>
+              )}
 
               <div className="swap-label">In play <span className="muted">(tap a card for details)</span></div>
               {tableau.length === 0 ? (
