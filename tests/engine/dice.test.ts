@@ -4,7 +4,7 @@ import type { GameState, PlayerState } from "../../src/engine/types";
 
 const base = (over: Partial<PlayerState> = {}): PlayerState => ({
   uid: "u", name: "n", hand: [], axe: "carpenters-axe", equipment: [], plusMinus: [],
-  help: [], standingTree: null, scoredTrees: [], speedClimbPoints: 0, skipNextTurn: false, redrawTo: 1, axeSetAside: false, giveMeAHand: [], cannotChopThisTurn: false, ...over });
+  help: [], standingTree: null, scoredTrees: [], speedClimbPoints: 0, skipTurns: 0, redrawTo: 1, axeSetAside: false, giveMeAHand: [], cannotChopThisTurn: false, ...over });
 
 describe("collectChopDice", () => {
   it("uses axe base (3) with no modifiers", () => {

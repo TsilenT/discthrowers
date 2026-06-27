@@ -7,7 +7,7 @@ function player(over: Partial<PlayerState> = {}): PlayerState {
   return {
     uid: "u", name: "n", hand: [], axe: null, equipment: [], plusMinus: [],
     help: [], standingTree: null, scoredTrees: [], speedClimbPoints: 0,
-    skipNextTurn: false, redrawTo: 1, axeSetAside: false, giveMeAHand: [], cannotChopThisTurn: false, ...over,
+    skipTurns: 0, redrawTo: 1, axeSetAside: false, giveMeAHand: [], cannotChopThisTurn: false, ...over,
   };
 }
 
@@ -222,7 +222,7 @@ describe("tree-hugger", () => {
   it("play sets skipNextTurn on target", () => {
     const g = game({ 0: player(), 1: player() });
     getHandler("tree-hugger").play(ctx(g, 0, 1));
-    expect(g.players[1]!.skipNextTurn).toBe(true);
+    expect(g.players[1]!.skipTurns).toBe(1);
   });
 });
 

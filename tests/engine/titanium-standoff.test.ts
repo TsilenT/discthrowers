@@ -43,7 +43,7 @@ describe("Hooligan Standoff take-basket option", () => {
     s = ok(apply(s, { type: "playCard", card: "sasquatch-mating-season", target: 1, takeBasket: true }, mulberry32(4)));
     expect(s.players[0]!.standingTree).toEqual({ treeId: "tree-red-oak", chops: 3 });
     expect(s.players[1]!.standingTree).toBeNull();
-    expect(s.players[1]!.skipNextTurn).toBe(true);
+    expect(s.players[1]!.skipTurns).toBe(1);
   });
 
   it("leaves the basket when not chosen (just skips their turn)", () => {
@@ -52,6 +52,6 @@ describe("Hooligan Standoff take-basket option", () => {
     s.players[1]!.standingTree = { treeId: "tree-red-oak", chops: 3 };
     s = ok(apply(s, { type: "playCard", card: "sasquatch-mating-season", target: 1, takeBasket: false }, mulberry32(4)));
     expect(s.players[1]!.standingTree).toEqual({ treeId: "tree-red-oak", chops: 3 });
-    expect(s.players[1]!.skipNextTurn).toBe(true);
+    expect(s.players[1]!.skipTurns).toBe(1);
   });
 });

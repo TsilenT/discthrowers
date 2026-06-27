@@ -407,11 +407,12 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
       tree.chops += gained;
       s.chopStockpile -= gained;
       consumePlusMinusAfterRoll(s, s.turn.activeSeat);
-      if (checkFellAndWin(s, s.turn.activeSeat)) { s.version++; return { ok: true, state: s }; }
       // Unbreakable discs (Pro-Stamped / Titanium) survive break results.
       const broke = axeBreaks && p.axe !== null && !redCard(p.axe).effect.unbreakable;
       if (broke) { s.redDiscard.push(p.axe!); p.axe = null; }
+      // Log the throw BEFORE checking for a win so a game-winning throw still shows in the log.
       pushLog(s, { k: "chop", seat: s.turn.activeSeat, chops: gained, broke, dice: rollerDice.length });
+      if (checkFellAndWin(s, s.turn.activeSeat)) { s.version++; return { ok: true, state: s }; }
       s.turn.phase = "longSaw";
       s.version++;
       return { ok: true, state: s };
@@ -473,10 +474,11 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
           hp.standingTree.chops += gained;
           s.chopStockpile -= gained;
           helpChops += gained;
-          if (checkFellAndWin(s, seat)) { s.version++; return { ok: true, state: s }; }
         }
       }
+      // Log the helper roll BEFORE checking for a win so a game-winning roll still shows in the log.
       if (helpDice.length > 0) pushLog(s, { k: "help", seat, chops: helpChops, dice: helpDice.length });
+      if (checkFellAndWin(s, seat)) { s.version++; return { ok: true, state: s }; }
       s.turn.phase = "end";
       s.version++;
       return { ok: true, state: s };
@@ -496,8 +498,8 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
       for (let skipped = 0; skipped < order.length; skipped++) {
         i = (i + 1) % order.length;
         const candidate = s.players[order[i]!]!;
-        if (candidate.skipNextTurn) {
-          candidate.skipNextTurn = false; // clear flag; keep advancing
+        if (candidate.skipTurns > 0) {
+          candidate.skipTurns -= 1; // consume one skipped turn; keep advancing
         } else {
           break; // found the next active seat
         }

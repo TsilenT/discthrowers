@@ -6,7 +6,7 @@ import type { GameState, PlayerState } from "../../src/engine/types";
 function player(over: Partial<PlayerState> = {}): PlayerState {
   return { uid: "u", name: "n", hand: [], axe: null, equipment: [], plusMinus: [],
            help: [], standingTree: null, scoredTrees: [], speedClimbPoints: 0,
-           skipNextTurn: false, redrawTo: 1, axeSetAside: false, giveMeAHand: [], cannotChopThisTurn: false, ...over };
+           skipTurns: 0, redrawTo: 1, axeSetAside: false, giveMeAHand: [], cannotChopThisTurn: false, ...over };
 }
 function game(players: Record<number, PlayerState>): GameState {
   return { version: 0, players, seatOrder: Object.keys(players).map(Number),
@@ -36,7 +36,7 @@ describe("primitives", () => {
   it("skipTurn sets the flag", () => {
     const g = game({ 0: player(), 1: player() });
     skipTurn(g, 1);
-    expect(g.players[1]!.skipNextTurn).toBe(true);
+    expect(g.players[1]!.skipTurns).toBe(1);
   });
   it("returnChops adds to stockpile", () => {
     const g = game({ 0: player() });

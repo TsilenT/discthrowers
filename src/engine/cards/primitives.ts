@@ -80,7 +80,8 @@ export function destroyStandingTree(s: GameState, seat: Seat): void {
   p.standingTree = null;
 }
 
-export function skipTurn(s: GameState, seat: Seat): void { s.players[seat]!.skipNextTurn = true; }
+/** Add one skipped turn to a seat (stacks with any already pending). */
+export function skipTurn(s: GameState, seat: Seat): void { s.players[seat]!.skipTurns += 1; }
 
 /** Discard every Help card in play (any Sasquatch card triggers this). */
 export function wipeAllHelp(s: GameState): void {

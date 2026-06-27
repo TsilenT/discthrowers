@@ -294,7 +294,7 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
                   {downs > 0 && <span className="ic" title="power-downs">🔻{downs}</span>}
                   {generic.length > 0 && <span className="ic" title={generic.map((id) => theme.card(id).name).join(", ")}>🤲{generic.length}</span>}
                   {p.help.length > 0 && <span className="ic" title="helpers">🤝{p.help.length}</span>}
-                  {p.skipNextTurn && <span className="ic" title="loses next turn">💤</span>}
+                  {p.skipTurns > 0 && <span className="ic" title={`loses ${p.skipTurns} turn${p.skipTurns === 1 ? "" : "s"}`}>💤{p.skipTurns > 1 ? p.skipTurns : ""}</span>}
                 </div>
               </div>
             );
@@ -698,9 +698,9 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
                 {dtree ? <> · 🪣 {dtree.name} ({dp.standingTree!.chops}/{dtree.chopTarget})</> : <> · no basket</>}
               </p>
 
-              {(dp.skipNextTurn || dp.axeSetAside || dp.cannotChopThisTurn) && (
+              {(dp.skipTurns > 0 || dp.axeSetAside || dp.cannotChopThisTurn) && (
                 <div className="statuses">
-                  {dp.skipNextTurn && <span className="status-pill">💤 Loses their next turn</span>}
+                  {dp.skipTurns > 0 && <span className="status-pill">💤 Loses their next {dp.skipTurns === 1 ? "turn" : `${dp.skipTurns} turns`}</span>}
                   {dp.axeSetAside && <span className="status-pill">🪚 Driver sidelined (Tandem Throwers)</span>}
                   {dp.cannotChopThisTurn && <span className="status-pill">🚫 Can’t throw this turn</span>}
                 </div>

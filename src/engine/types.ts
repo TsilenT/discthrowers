@@ -33,7 +33,8 @@ export interface PlayerState {
   standingTree: StandingTree | null;
   scoredTrees: TreeId[];
   speedClimbPoints: number;
-  skipNextTurn: boolean;
+  /** Number of upcoming turns this player must skip. Stacks: each skip effect adds one. */
+  skipTurns: number;
   /** How many cards to draw up to on the next draw phase (reset to 1 after draw). Default 1. Rampage sets to 4. */
   redrawTo: number;
   /** Long Saw & Partner: while true, axe is set aside and chop skips the roll. */

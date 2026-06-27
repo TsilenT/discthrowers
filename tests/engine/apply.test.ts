@@ -102,12 +102,34 @@ describe("apply: chop & turn end", () => {
     s = ok(apply(s, { type: "longSaw" }, mulberry32(13)));
     s = ok(apply(s, { type: "manageHelp" }, mulberry32(11)));
     // seat 0 is active and in "end" phase; flag seat 1 to be skipped
-    s.players[1]!.skipNextTurn = true;
+    s.players[1]!.skipTurns = 1;
     s = ok(apply(s, { type: "endTurn" }, mulberry32(12)));
     // seat 1 was skipped so the turn wraps back to seat 0
     expect(s.turn.activeSeat).toBe(0);
     // flag must be cleared
-    expect(s.players[1]!.skipNextTurn).toBe(false);
+    expect(s.players[1]!.skipTurns).toBe(0);
+  });
+  it("stacked skips: a seat with skipTurns=2 is passed over two rounds", () => {
+    // 2-player game. Seat 1 has 2 skips stacked. Reaching seat 1 should consume
+    // one skip each time and wrap back to seat 0, twice, before seat 1 finally plays.
+    let s = atChop();
+    s = ok(apply(s, { type: "chop" }, mulberry32(10)));
+    s = ok(apply(s, { type: "longSaw" }, mulberry32(13)));
+    s = ok(apply(s, { type: "manageHelp" }, mulberry32(11)));
+    s.players[1]!.skipTurns = 2;
+    // First endTurn: seat 1 skipped (→1 left), wraps to seat 0.
+    s = ok(apply(s, { type: "endTurn" }, mulberry32(12)));
+    expect(s.turn.activeSeat).toBe(0);
+    expect(s.players[1]!.skipTurns).toBe(1);
+    // End seat 0's turn again: seat 1 still has a skip pending → skipped again (→0).
+    s.turn.phase = "end";
+    s = ok(apply(s, { type: "endTurn" }, mulberry32(12)));
+    expect(s.turn.activeSeat).toBe(0);
+    expect(s.players[1]!.skipTurns).toBe(0);
+    // Now seat 1 has no skips left, so a final end advances to seat 1.
+    s.turn.phase = "end";
+    s = ok(apply(s, { type: "endTurn" }, mulberry32(12)));
+    expect(s.turn.activeSeat).toBe(1);
   });
   it("felling a tree to 21 points sets winner", () => {
     let s = atChop();

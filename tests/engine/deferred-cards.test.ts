@@ -35,7 +35,7 @@ function makePlayer(over: Partial<PlayerState> = {}): PlayerState {
     standingTree: null,
     scoredTrees: [],
     speedClimbPoints: 0,
-    skipNextTurn: false,
+    skipTurns: 0,
     redrawTo: 1,
     axeSetAside: false,
     giveMeAHand: [],

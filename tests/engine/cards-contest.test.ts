@@ -32,7 +32,7 @@ function player(over: Partial<PlayerState> = {}): PlayerState {
   return {
     uid: "u", name: "n", hand: [], axe: null, equipment: [], plusMinus: [],
     help: [], standingTree: null, scoredTrees: [], speedClimbPoints: 0,
-    skipNextTurn: false, redrawTo: 1, axeSetAside: false, giveMeAHand: [],
+    skipTurns: 0, redrawTo: 1, axeSetAside: false, giveMeAHand: [],
     cannotChopThisTurn: false, ...over,
   };
 }
@@ -155,16 +155,16 @@ describe("log-rolling", () => {
     const g = game();
     const rng = dieRng([6, 1]);
     getHandler("log-rolling").play(ctx(g, 0, 1, rng));
-    expect(g.players[1]!.skipNextTurn).toBe(true);
-    expect(g.players[0]!.skipNextTurn).toBe(false);
+    expect(g.players[1]!.skipTurns).toBe(1);
+    expect(g.players[0]!.skipTurns).toBe(0);
   });
 
   it("loser (seat 0) gets skipNextTurn when opponent wins", () => {
     const g = game();
     const rng = dieRng([1, 6]);
     getHandler("log-rolling").play(ctx(g, 0, 1, rng));
-    expect(g.players[0]!.skipNextTurn).toBe(true);
-    expect(g.players[1]!.skipNextTurn).toBe(false);
+    expect(g.players[0]!.skipTurns).toBe(1);
+    expect(g.players[1]!.skipTurns).toBe(0);
   });
 });
 

@@ -19,7 +19,7 @@ describe("Hooligan Sighting records a roll-off reveal and logs who failed", () =
     expect(reveal.rolls.map((r) => r.seat).sort()).toEqual([1, 2]); // every other player
     for (const r of reveal.rolls) {
       expect(r.failed).toBe(r.roll <= 3);                       // 1-3 fail
-      expect(s.players[r.seat]!.skipNextTurn).toBe(r.failed);   // failers lose a turn
+      expect(s.players[r.seat]!.skipTurns).toBe(r.failed ? 1 : 0);   // failers lose a turn
     }
     const failedSeats = reveal.rolls.filter((r) => r.failed).map((r) => r.seat);
     const logEntry = (s.log ?? []).find((e) => e.k === "sighting");

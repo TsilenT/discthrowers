@@ -21,7 +21,7 @@ function player(over: Partial<PlayerState> = {}): PlayerState {
   return {
     uid: "u", name: "n", hand: [], axe: "carpenters-axe", equipment: [], plusMinus: [],
     help: [], standingTree: null, scoredTrees: [], speedClimbPoints: 0,
-    skipNextTurn: false, redrawTo: 1, axeSetAside: false, giveMeAHand: [], cannotChopThisTurn: false,
+    skipTurns: 0, redrawTo: 1, axeSetAside: false, giveMeAHand: [], cannotChopThisTurn: false,
     ...over,
   };
 }

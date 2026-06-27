@@ -9,7 +9,7 @@ function player(over: Partial<PlayerState> = {}): PlayerState {
   return {
     uid: "u", name: "n", hand: [], axe: null, equipment: [], plusMinus: [],
     help: [], standingTree: null, scoredTrees: [], speedClimbPoints: 0,
-    skipNextTurn: false, redrawTo: 1, axeSetAside: false, giveMeAHand: [], cannotChopThisTurn: false, ...over,
+    skipTurns: 0, redrawTo: 1, axeSetAside: false, giveMeAHand: [], cannotChopThisTurn: false, ...over,
   };
 }
 
@@ -129,8 +129,8 @@ describe("sasquatch-sighting", () => {
       rng: { nextFloat: () => 0, nextInt: () => 2, shuffle: (a) => a }, // always returns face 3 (nextInt(6)=2 -> +1 = 3)
     };
     getHandler("sasquatch-sighting").play(customCtx);
-    expect(g.players[1]!.skipNextTurn).toBe(true);
-    expect(g.players[2]!.skipNextTurn).toBe(true);
+    expect(g.players[1]!.skipTurns).toBe(1);
+    expect(g.players[2]!.skipTurns).toBe(1);
   });
 
   it("does not set skipNextTurn for the actor", () => {
@@ -140,7 +140,7 @@ describe("sasquatch-sighting", () => {
       rng: { nextFloat: () => 0, nextInt: () => 2, shuffle: (a) => a }, // all dice = face 3, skip
     };
     getHandler("sasquatch-sighting").play(customCtx);
-    expect(g.players[0]!.skipNextTurn).toBe(false);
+    expect(g.players[0]!.skipTurns).toBe(0);
   });
 
   it("does not skip opponent on roll 4/5/6", () => {
@@ -150,7 +150,7 @@ describe("sasquatch-sighting", () => {
       rng: { nextFloat: () => 0, nextInt: () => 5, shuffle: (a) => a }, // nextInt(6)=5 -> face 6, no skip
     };
     getHandler("sasquatch-sighting").play(customCtx);
-    expect(g.players[1]!.skipNextTurn).toBe(false);
+    expect(g.players[1]!.skipTurns).toBe(0);
   });
 });
 
@@ -224,7 +224,7 @@ describe("sasquatch-mating-season", () => {
   it("target loses their next turn", () => {
     const g = game({ 0: player(), 1: player() });
     getHandler("sasquatch-mating-season").play(ctx(g, 0, 1));
-    expect(g.players[1]!.skipNextTurn).toBe(true);
+    expect(g.players[1]!.skipTurns).toBe(1);
   });
 
   it("M2: takes target's tree when actor opts to take the basket", () => {

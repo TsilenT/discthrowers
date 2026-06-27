@@ -42,7 +42,7 @@ export function normalizeState(raw: GameState | null): GameState | null {
     p.axe = p.axe ?? null;
     p.standingTree = p.standingTree ?? null;
     p.speedClimbPoints = p.speedClimbPoints ?? 0;
-    p.skipNextTurn = p.skipNextTurn ?? false;
+    p.skipTurns = p.skipTurns ?? 0;
     p.redrawTo = p.redrawTo ?? 1;
     p.axeSetAside = p.axeSetAside ?? false;
     p.giveMeAHand = p.giveMeAHand ?? [];

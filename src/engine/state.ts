@@ -19,7 +19,7 @@ export function createInitialGame(seats: SeatInfo[], rng: Rng, opts?: { rollOff?
     players[i] = {
       uid: s.uid, name: s.name, hand,
       axe: null, equipment: [], plusMinus: [], help: [],
-      standingTree: null, scoredTrees: [], speedClimbPoints: 0, skipNextTurn: false, redrawTo: 1,
+      standingTree: null, scoredTrees: [], speedClimbPoints: 0, skipTurns: 0, redrawTo: 1,
       axeSetAside: false, giveMeAHand: [], cannotChopThisTurn: false,
     };
   });
