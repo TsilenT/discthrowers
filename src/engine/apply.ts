@@ -103,12 +103,13 @@ function checkAnyWin(s: GameState): boolean {
  * Mutates s. Does NOT bump version (caller does that).
  * Returns true if the game was won (caller should return early).
  */
-function resolvePlayedCard(s: GameState, card: CardId, actorSeat: Seat, target: Seat | undefined, rng: Rng, swap?: { mine: number; theirs: number }, takeBasket?: boolean): boolean {
+function resolvePlayedCard(s: GameState, card: CardId, actorSeat: Seat, target: Seat | undefined, rng: Rng, swap?: { mine: number; theirs: number }, takeBasket?: boolean, stealItem?: CardId): boolean {
   const ctx: CardContext = {
     state: s, actorSeat, rng,
     ...(target !== undefined ? { target } : {}),
     ...(swap !== undefined ? { swap } : {}),
     ...(takeBasket !== undefined ? { takeBasket } : {}),
+    ...(stealItem !== undefined ? { stealItem } : {}),
   };
   const handler = getHandler(card);
   handler.play(ctx);
@@ -176,6 +177,7 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
         ...(action.target !== undefined ? { target: action.target } : {}),
         ...(action.swap !== undefined ? { swap: action.swap } : {}),
         ...(action.takeBasket !== undefined ? { takeBasket: action.takeBasket } : {}),
+        ...(action.stealItem !== undefined ? { stealItem: action.stealItem } : {}),
       };
       const handler = getHandler(card);
       if (!handler.isPlayable(ctx)) return fail("That card is not playable in this situation");
@@ -197,6 +199,7 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
           ...(action.target !== undefined ? { target: action.target } : {}),
           ...(action.swap !== undefined ? { swap: action.swap } : {}),
           ...(action.takeBasket !== undefined ? { takeBasket: action.takeBasket } : {}),
+          ...(action.stealItem !== undefined ? { stealItem: action.stealItem } : {}),
         };
         s.pendingReaction = pending;
         s.version++;
@@ -204,7 +207,7 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
       }
 
       // No reactors — resolve immediately
-      if (resolvePlayedCard(s, card, activeSeat, action.target, rng, action.swap, action.takeBasket)) {
+      if (resolvePlayedCard(s, card, activeSeat, action.target, rng, action.swap, action.takeBasket, action.stealItem)) {
         s.version++;
         return { ok: true, state: s };
       }
@@ -296,8 +299,9 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
         const target = pr.target;
         const swap = pr.swap;
         const takeBasket = pr.takeBasket;
+        const stealItem = pr.stealItem;
         s.pendingReaction = null;
-        if (resolvePlayedCard(s, pendingCard, actorSeat, target, rng, swap, takeBasket)) {
+        if (resolvePlayedCard(s, pendingCard, actorSeat, target, rng, swap, takeBasket, stealItem)) {
           s.version++;
           return { ok: true, state: s };
         }

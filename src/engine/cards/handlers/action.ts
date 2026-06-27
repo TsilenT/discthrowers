@@ -80,7 +80,13 @@ export const actionHandlers: Record<string, CardHandler> = {
       const s = ctx.state;
       const actor = s.players[ctx.actorSeat]!;
       const targetP = s.players[ctx.target!]!;
-      if (targetP.axe !== null) {
+      // The actor may pick which item to take (ctx.stealItem). If the chosen item is the
+      // axe (or no choice was made and only the axe is available), steal the axe.
+      const wantsAxe =
+        ctx.stealItem !== undefined
+          ? ctx.stealItem === targetP.axe
+          : targetP.equipment.length === 0; // default: axe only if no other gear
+      if (targetP.axe !== null && wantsAxe) {
         // Steal the axe — one axe at a time: discard the actor's current axe first.
         const stolen = targetP.axe;
         targetP.axe = null;
@@ -88,8 +94,13 @@ export const actionHandlers: Record<string, CardHandler> = {
         actor.axe = stolen;
         return;
       }
-      // Otherwise take the first non-axe gear.
-      const stolen = targetP.equipment.shift()!;
+      // Take a non-axe gear: the chosen one if valid, otherwise the first.
+      let idx = 0;
+      if (ctx.stealItem !== undefined) {
+        const chosen = targetP.equipment.indexOf(ctx.stealItem);
+        if (chosen !== -1) idx = chosen;
+      }
+      const stolen = targetP.equipment.splice(idx, 1)[0]!;
       const existingIdx = actor.equipment.indexOf(stolen);
       if (existingIdx !== -1) { actor.equipment.splice(existingIdx, 1); s.redDiscard.push(stolen); } // no doubles
       actor.equipment.push(stolen);

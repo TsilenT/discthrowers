@@ -1,4 +1,4 @@
-import type { GameState, PlayerState, Seat } from "../types";
+import type { CardId, GameState, PlayerState, Seat } from "../types";
 import type { Rng } from "../rng";
 
 export interface CardContext {
@@ -7,6 +7,7 @@ export interface CardContext {
   target?: Seat;          // chosen target seat, if the card needs one
   swap?: { mine: number; theirs: number }; // Score Card Swap's chosen hole indices
   takeBasket?: boolean; // Hooligan Standoff: whether to also take the target's basket
+  stealItem?: CardId; // Gear Grab: which of the target's equipment cards to take
   rng: Rng;
 }
 

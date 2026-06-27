@@ -60,7 +60,7 @@ const GEAR_ICON: Record<string, string> = { gloves: "🧤", boots: "👟" };
 
 /** Cards that open their own multi-step chooser instead of the generic target picker. */
 function hasChooser(cardId: string): boolean {
-  return cardId === "switch-tags" || cardId === "sasquatch-mating-season";
+  return cardId === "switch-tags" || cardId === "sasquatch-mating-season" || cardId === "steal-equipment";
 }
 
 function noOpAction(state: GameState): Action | null {
@@ -93,6 +93,7 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
   const [inspectCard, setInspectCard] = useState<string | null>(null); // full-card inspector inside the detail popup
   const [swapUI, setSwapUI] = useState<{ mine: number; targetSeat: Seat | null; theirs: number } | null>(null);
   const [standoffUI, setStandoffUI] = useState<{ targetSeat: Seat | null; take: boolean } | null>(null);
+  const [stealUI, setStealUI] = useState<{ targetSeat: Seat | null; item: string | null } | null>(null);
   // Juice: transient visual effects
   const [chains, setChains] = useState<{ seat: Seat; v: number } | null>(null);   // "I HEARD CHAINS!" burst
   const [breakSeat, setBreakSeat] = useState<{ seat: Seat; v: number } | null>(null); // driver-break shake
@@ -148,6 +149,12 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
     handPlayer.hand.some((c) => playability(c, turn.activeSeat, state, seatOrder).mode !== "none");
 
   const name = (seat: Seat) => players[seat]?.name ?? `Seat ${seat}`;
+  // Gear Grab: everything a target player owns that can be swiped (driver + gear).
+  const stealItemsOf = (seat: Seat): string[] => {
+    const pl = players[seat];
+    if (!pl) return [];
+    return [...(pl.axe !== null ? [pl.axe] : []), ...pl.equipment];
+  };
   const logText = (e: LogEntry): string => {
     switch (e.k) {
       case "turn": return `▶ ${name(e.seat)}’s turn`;
@@ -327,6 +334,14 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
                           {cardId === "sasquatch-mating-season" && info?.mode === "target" && (
                             <button className="btn btn-primary btn-sm"
                               onClick={() => setStandoffUI({ targetSeat: info.legalTargets[0] ?? null, take: false })}>Standoff ▸</button>
+                          )}
+                          {cardId === "steal-equipment" && info?.mode === "target" && (
+                            <button className="btn btn-primary btn-sm"
+                              onClick={() => {
+                                const t = info.legalTargets[0] ?? null;
+                                const items = t !== null ? stealItemsOf(t) : [];
+                                setStealUI({ targetSeat: t, item: items[0] ?? null });
+                              }}>Grab ▸</button>
                           )}
                           {!hasChooser(cardId) && (info?.mode === "target" || info?.mode === "axe") && info.legalTargets.length > 0 && !targeting && (
                             <button className="btn btn-sm" onClick={() => setTargetingCard(key)}>Play ▸</button>
@@ -563,6 +578,45 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
                   Play
                 </button>
                 <button className="btn btn-ghost" onClick={() => setStandoffUI(null)}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {stealUI && (() => {
+        const opps = seatOrder.filter((s) => s !== turn.activeSeat && stealItemsOf(s).length > 0);
+        const tgt = stealUI.targetSeat;
+        const items = tgt !== null ? stealItemsOf(tgt) : [];
+        return (
+          <div className="overlay" role="dialog" onClick={() => setStealUI(null)}>
+            <div className="score-card" onClick={(e) => e.stopPropagation()}>
+              <h3>{theme.card("steal-equipment").name}</h3>
+              <p className="muted">Swipe one piece of gear (driver counts) from another player.</p>
+              <div className="swap-label">Take from</div>
+              <div className="swap-opts">
+                {opps.map((seat) => (
+                  <button key={seat} className={`btn btn-sm ${stealUI.targetSeat === seat ? "swap-sel" : ""}`}
+                    onClick={() => setStealUI({ targetSeat: seat, item: stealItemsOf(seat)[0] ?? null })}>
+                    {name(seat)}
+                  </button>
+                ))}
+              </div>
+              <div className="swap-label">Which item</div>
+              <div className="swap-opts">
+                {items.map((cid, i) => (
+                  <button key={`${cid}-${i}`} className={`btn btn-sm ${stealUI.item === cid ? "swap-sel" : ""}`}
+                    onClick={() => setStealUI({ ...stealUI, item: cid })}>
+                    {stealUI.item === cid ? "✓ " : ""}{theme.card(cid).name}
+                  </button>
+                ))}
+              </div>
+              <div className="swap-actions">
+                <button className="btn btn-primary" disabled={stealUI.targetSeat === null || stealUI.item === null}
+                  onClick={() => { void act({ type: "playCard", card: "steal-equipment", target: stealUI.targetSeat!, stealItem: stealUI.item! }); setStealUI(null); }}>
+                  Grab
+                </button>
+                <button className="btn btn-ghost" onClick={() => setStealUI(null)}>Cancel</button>
               </div>
             </div>
           </div>

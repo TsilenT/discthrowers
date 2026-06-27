@@ -17,6 +17,7 @@ export interface PendingReaction {
   target?: Seat;          // its chosen target, if any
   swap?: { mine: number; theirs: number }; // Score Card Swap's chosen hole indices
   takeBasket?: boolean; // Hooligan Standoff: whether to also take the target's basket
+  stealItem?: CardId; // Gear Grab: which of the target's equipment cards to take
   eligibleReactors: Seat[];
   passed: Seat[];
 }
@@ -110,7 +111,7 @@ export interface GameState {
 export type Action =
   | { type: "squareUp" }
   | { type: "draw" }
-  | { type: "playCard"; card: CardId; target?: Seat; swap?: { mine: number; theirs: number }; takeBasket?: boolean }
+  | { type: "playCard"; card: CardId; target?: Seat; swap?: { mine: number; theirs: number }; takeBasket?: boolean; stealItem?: CardId }
   | { type: "discardCard"; card: CardId }
   | { type: "chop" }
   | { type: "longSaw" }

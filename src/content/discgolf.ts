@@ -188,7 +188,7 @@ const DG_CARDS: Record<string, CardDisplay> = {
   "steal-equipment": {
     name: "Gear Grab",
     rulesText:
-      "Swipe a piece of equipment from another player. No-doubles rule: if you steal something you already have, discard your old copy.",
+      "Choose a piece of equipment (a driver counts) from another player and swipe it. No-doubles rule: if you steal something you already have, discard your old copy.",
     category: "action",
   },
   "switch-tags": {

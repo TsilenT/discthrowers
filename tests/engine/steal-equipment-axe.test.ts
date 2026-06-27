@@ -26,6 +26,31 @@ describe("Steal Equipment works on axes", () => {
     expect(s.redDiscard).toContain("chopping-axe"); // old axe discarded
   });
 
+  it("takes the chosen gear, leaving the axe and other gear behind", () => {
+    let s = toPlay();
+    s.players[0]!.hand = ["steal-equipment"];
+    s.players[0]!.equipment = [];
+    s.players[1]!.axe = "titanium-axe";
+    s.players[1]!.equipment = ["boots", "gloves"];
+    s = ok(apply(s, { type: "playCard", card: "steal-equipment", target: 1, stealItem: "gloves" }, mulberry32(4)));
+    expect(s.players[0]!.equipment).toContain("gloves");
+    expect(s.players[1]!.equipment).toEqual(["boots"]); // gloves taken, boots remain
+    expect(s.players[1]!.axe).toBe("titanium-axe");     // driver untouched
+    expect(s.players[0]!.axe).toBeNull();
+  });
+
+  it("takes the chosen driver even when the target also has gear", () => {
+    let s = toPlay();
+    s.players[0]!.hand = ["steal-equipment"];
+    s.players[0]!.axe = null;
+    s.players[1]!.axe = "carpenters-axe";
+    s.players[1]!.equipment = ["boots"];
+    s = ok(apply(s, { type: "playCard", card: "steal-equipment", target: 1, stealItem: "carpenters-axe" }, mulberry32(4)));
+    expect(s.players[0]!.axe).toBe("carpenters-axe");
+    expect(s.players[1]!.axe).toBeNull();
+    expect(s.players[1]!.equipment).toEqual(["boots"]); // gear left behind
+  });
+
   it("is playable when the target only has an axe", () => {
     const s = toPlay();
     s.players[0]!.hand = ["steal-equipment"];
