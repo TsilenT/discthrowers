@@ -118,7 +118,7 @@ const DG_CARDS: Record<string, CardDisplay> = {
   "babe": {
     name: "Course Pro",
     rulesText:
-      "A touring legend on your bag. When you manage the help, roll two dice; each 4/5/6 adds a throw to your basket. Cannot be poached with Bag Snatch (only an Endorsement Deal moves them).",
+      "A touring legend who helps you throw. When you manage the help, roll two dice; each 4/5/6 adds a throw to your basket. Cannot be poached with Caddy Poach (only an Endorsement Deal moves them).",
     category: "help",
   },
   "long-saw-and-partner": {
@@ -212,7 +212,7 @@ const DG_CARDS: Record<string, CardDisplay> = {
   "babe-biscuit": {
     name: "Endorsement Deal",
     rulesText:
-      "Tempt the Course Pro onto your bag with a sponsorship; or if the Course Pro is in the discard, sign them and put them in front of you.",
+      "Sign the Course Pro to throw for you with a sponsorship; or if the Course Pro is in the discard, sign them and put them in front of you.",
     category: "action",
   },
   "give-me-a-hand": {
