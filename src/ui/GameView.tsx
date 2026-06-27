@@ -95,6 +95,7 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
   const [standoffUI, setStandoffUI] = useState<{ targetSeat: Seat | null; take: boolean } | null>(null);
   const [stealUI, setStealUI] = useState<{ targetSeat: Seat | null; item: string | null } | null>(null);
   const [winDismissed, setWinDismissed] = useState(false); // hide win overlay to look around at players/log
+  const [comboUI, setComboUI] = useState<{ partners: string[] } | null>(null); // Downhill Lie combine chooser
   // Juice: transient visual effects
   const [chains, setChains] = useState<{ seat: Seat; v: number } | null>(null);   // "I HEARD CHAINS!" burst
   const [breakSeat, setBreakSeat] = useState<{ seat: Seat; v: number } | null>(null); // driver-break shake
@@ -156,6 +157,9 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
     if (!pl) return [];
     return [...(pl.axe !== null ? [pl.axe] : []), ...pl.equipment];
   };
+  // Downhill Lie can be combined with Tailwind / Slight Tailwind held in the active hand.
+  const combinablePartners = (): string[] =>
+    (players[turn.activeSeat]?.hand ?? []).filter((c) => c === "flapjacks" || c === "short-stack");
   const logText = (e: LogEntry): string => {
     switch (e.k) {
       case "turn": return `▶ ${name(e.seat)}’s turn`;
@@ -325,7 +329,10 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
                           {info?.mode === "axe" && info.canEquipSelf && (
                             <button className="btn btn-primary btn-sm" onClick={() => playMotion(key, { type: "playCard", card: cardId })}>Equip</button>
                           )}
-                          {info?.mode === "self" && (
+                          {info?.mode === "self" && cardId === "side-of-bacon" && combinablePartners().length > 0 && (
+                            <button className="btn btn-primary btn-sm" onClick={() => setComboUI({ partners: [] })}>Combine ▸</button>
+                          )}
+                          {info?.mode === "self" && !(cardId === "side-of-bacon" && combinablePartners().length > 0) && (
                             <button className="btn btn-primary btn-sm" onClick={() => playMotion(key, { type: "playCard", card: cardId })}>Play</button>
                           )}
                           {/* Cards with an extra choice open their own chooser. */}
@@ -619,6 +626,41 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
                   Grab
                 </button>
                 <button className="btn btn-ghost" onClick={() => setStealUI(null)}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {comboUI && (() => {
+        const partners = combinablePartners();
+        const toggle = (c: string) =>
+          setComboUI({ partners: comboUI.partners.includes(c) ? comboUI.partners.filter((x) => x !== c) : [...comboUI.partners, c] });
+        return (
+          <div className="overlay" role="dialog" onClick={() => setComboUI(null)}>
+            <div className="score-card" onClick={(e) => e.stopPropagation()}>
+              <h3>{theme.card("side-of-bacon").name}</h3>
+              <p className="muted">Play it together with a Tailwind for one combined play — you’ll draw a card immediately.</p>
+              <div className="swap-label">Also play (optional)</div>
+              <div className="swap-opts">
+                {partners.map((c, i) => (
+                  <button key={`${c}-${i}`} className={`btn btn-sm ${comboUI.partners.includes(c) ? "swap-sel" : ""}`}
+                    onClick={() => toggle(c)}>
+                    {comboUI.partners.includes(c) ? "✓ " : ""}{theme.card(c).name}
+                  </button>
+                ))}
+              </div>
+              <div className="swap-actions">
+                <button className="btn btn-primary"
+                  onClick={() => {
+                    void act(comboUI.partners.length > 0
+                      ? { type: "playCard", card: "side-of-bacon", combine: comboUI.partners }
+                      : { type: "playCard", card: "side-of-bacon" });
+                    setComboUI(null);
+                  }}>
+                  {comboUI.partners.length > 0 ? "Play combined" : "Play alone"}
+                </button>
+                <button className="btn btn-ghost" onClick={() => setComboUI(null)}>Cancel</button>
               </div>
             </div>
           </div>

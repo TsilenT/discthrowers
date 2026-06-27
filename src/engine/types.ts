@@ -112,7 +112,7 @@ export interface GameState {
 export type Action =
   | { type: "squareUp" }
   | { type: "draw" }
-  | { type: "playCard"; card: CardId; target?: Seat; swap?: { mine: number; theirs: number }; takeBasket?: boolean; stealItem?: CardId }
+  | { type: "playCard"; card: CardId; target?: Seat; swap?: { mine: number; theirs: number }; takeBasket?: boolean; stealItem?: CardId; combine?: CardId[] }
   | { type: "discardCard"; card: CardId }
   | { type: "chop" }
   | { type: "longSaw" }

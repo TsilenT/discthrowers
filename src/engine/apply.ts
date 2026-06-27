@@ -181,6 +181,19 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
       };
       const handler = getHandler(card);
       if (!handler.isPlayable(ctx)) return fail("That card is not playable in this situation");
+      // Combined play (Downhill Lie + Tailwind/Slight Tailwind as one play, then draw a card).
+      // Only Side of Bacon can anchor a combine, and only with Flapjacks/Short Stack held in hand.
+      const combine = action.combine ?? [];
+      if (combine.length > 0) {
+        if (card !== "side-of-bacon") return fail("Only Downhill Lie can be combined with another card");
+        const seen = new Set<CardId>();
+        for (const c of combine) {
+          if (c !== "flapjacks" && c !== "short-stack") return fail("Downhill Lie only combines with Tailwind or Slight Tailwind");
+          if (seen.has(c)) return fail("Cannot combine the same card twice");
+          seen.add(c);
+          if (p.hand.indexOf(c) === -1) return fail("Combine card not in hand");
+        }
+      }
       // Remove card from hand
       p.hand.splice(idx, 1);
       pushLog(s, action.target !== undefined
@@ -210,6 +223,20 @@ export function apply(state: GameState, action: Action, rng: Rng): ApplyResult {
       if (resolvePlayedCard(s, card, activeSeat, action.target, rng, action.swap, action.takeBasket, action.stealItem)) {
         s.version++;
         return { ok: true, state: s };
+      }
+      // Combined play: also play the stacked Tailwind/Slight Tailwind cards, then draw 1.
+      for (const c of combine) {
+        const ci = p.hand.indexOf(c);
+        if (ci === -1) continue;
+        p.hand.splice(ci, 1);
+        pushLog(s, { k: "play", seat: activeSeat, card: c });
+        resolvePlayedCard(s, c, activeSeat, undefined, rng);
+      }
+      if (combine.length > 0) {
+        // Draw a single replacement card for the combine.
+        if (s.redDeck.length === 0 && s.redDiscard.length > 0) { s.redDeck = rng.shuffle(s.redDiscard); s.redDiscard = []; }
+        const drawn = s.redDeck.shift();
+        if (drawn) p.hand.push(drawn);
       }
       s.turn.phase = "chop";
       s.version++;
