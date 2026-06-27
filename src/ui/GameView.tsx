@@ -490,9 +490,9 @@ export function GameView({ theme: themeProp }: { theme?: ThemeContent }) {
             {orderReveal.rounds.map((round, ri) => (
               <div key={ri} className="contest-rolls">
                 {round.map((r) => (
-                  <div key={r.seat} className="contest-side">
-                    <div className="contest-name">{name(r.seat)}</div>
-                    <RollingDie value={r.roll} />
+                  <div key={r.seat} className={`contest-side ${r.seat === orderReveal.order[0] ? "won" : ""}`}>
+                    <div className="contest-name">{name(r.seat)}{r.seat === orderReveal.order[0] ? " 🥇" : ""}</div>
+                    <RollingDie value={r.roll} outcome={r.seat === orderReveal.order[0] ? "win" : null} />
                   </div>
                 ))}
               </div>

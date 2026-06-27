@@ -14,7 +14,7 @@ const prefersReducedMotion = () =>
   typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /** A single static pip die (for the contest reveal etc.). */
-export function PipDie({ value, outcome }: { value: number; outcome?: "hit" | "miss" | "low" | null }) {
+export function PipDie({ value, outcome }: { value: number; outcome?: "hit" | "miss" | "low" | "win" | null }) {
   const pips = PIPS[value] ?? [];
   const cls = ["die", outcome && `die--${outcome}`].filter(Boolean).join(" ");
   return (
@@ -31,7 +31,7 @@ export function PipDie({ value, outcome }: { value: number; outcome?: "hit" | "m
  * (tinted by outcome). Used in the reveal popups (contests, sighting, roll-off) so
  * those dice actually roll instead of just appearing.
  */
-export function RollingDie({ value, outcome = null }: { value: number; outcome?: "hit" | "miss" | "low" | null }) {
+export function RollingDie({ value, outcome = null }: { value: number; outcome?: "hit" | "miss" | "low" | "win" | null }) {
   const [face, setFace] = useState(value);
   const [rolling, setRolling] = useState(!prefersReducedMotion());
   useEffect(() => {
